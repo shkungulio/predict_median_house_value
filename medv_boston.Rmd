@@ -1,0 +1,178 @@
+---
+title: "Predicting Median House Value in Boston"
+author: "Seif H. Kungulio"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+description: "A comprehensive analysis to predict median house values in Boston suburbs using various machine learning techniques."
+categories: [Data Science, Machine Learning, R]
+tags: [Regression, Random Forest, Data Preparation, Model Evaluation]
+output:
+  pdf_document:
+    toc: true
+    number_sections: true
+    highlight: espresso
+    include:
+      in_header: resources/header.tex
+    latex_engine: xelatex
+header-includes:
+  # Font and color setup
+  - \usepackage{xcolor}
+  - \definecolor{brand}{HTML}{000000}
+  - \definecolor{subbrand}{HTML}{212121}
+  - \usepackage{titlesec}
+  - \titleformat{\section}{\Large\bfseries\color{brand}}{\thesection}{1em}{}
+  - \titleformat{\subsection}{\large\bfseries\color{subbrand}}{\thesubsection}{0.75em}{}
+  - \usepackage[most]{tcolorbox}
+  - \tcbset{colback=white, colframe=brand, coltitle=white, fonttitle=\bfseries}
+  - \usepackage{fancyhdr}
+  - \pagestyle{fancy}
+  - \fancyhead[L]{\textcolor{brand}{Predicting Median House Value in Boston}}
+  - \fancyhead[R]{\textcolor{subbrand}{Seif H. Kungulio}}
+  - \fancyfoot[C]{\thepage}
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, message = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width=12, fig.height=6)
+
+# Set default CRAN mirror
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+#Install the following libraries if required
+# List of required packages
+
+
+required_pkgs <- c("tidyverse","skimr","GGally","caret","pROC","vip","xgboost",
+                   "Matrix","pls","broom","janitor","car","yardstick","cowplot",
+                   "ggrepel","patchwork","MASS")
+
+# Install and load each package
+for (pkg in required_pkgs) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg)
+  }
+  library(pkg, character.only = TRUE)
+}
+
+theme_set(theme_minimal(base_size = 12))
+options(dplyr.summarise.inform = FALSE)
+```
+
+\newpage
+
+# Business Understanding
+## Introduction
+
+
+## Objectives
+The goal is to predict the median house value (MEDV) in Boston suburbs based on multiple explanatory variables such as crime rate, property tax, and number of rooms per dwelling.
+
+## Problem Statement
+\begin{tcolorbox}[title=Problem statement]
+Boston’s housing authority wants to understand the key factors influencing housing prices and build an accurate model to estimate property values for decision-making, urban planning, and investment.
+\end{tcolorbox}
+
+## Success Criteria
+* Predictive: Achieve high accuracy (e.g., R² > 0.80) and low error (e.g., RMSE < 3) on unseen data.
+* Business: Identify the top predictors of house price to guide policy or investment.
+
+\newpage
+
+# Data Understanding
+## Data Collection
+The dataset used in this analysis is the Boston Housing Dataset, which contains information about various attributes of houses in Boston suburbs. The dataset is publicly available and can be accessed through the `MASS` package in R.
+```{r load-data}
+data("Boston", package = "MASS")
+boston_data <- as_tibble(Boston)
+glimpse(boston_data)
+```
+
+## Data Description
+The dataset includes the following variables:
+
+* MEDV: Median value of owner-occupied homes in $1000s (target variable)
+* CRIM: Per capita crime rate by town
+* ZN: Proportion of residential land zoned for lots over 25,000 sqft
+* INDUS: Proportion of non-retail business acres per town
+* CHAS: Charles River dummy variable (1 if tract bounds river; 0 otherwise)
+* NOX: Nitric oxides concentration (parts per 10 million)
+* RM: Average number of rooms per dwelling
+* AGE: Proportion of owner-occupied units built prior to 1940
+* DIS: Weighted distances to five Boston employment centres
+* RAD: Index of accessibility to radial highways
+* TAX: Full-value property tax rate per $10,000
+* PTRATIO: Pupil-teacher ratio by town
+* B: 1000(Bk - 0.63)^2 where Bk is the proportion of
+
+* LSTAT: Percentage of lower status of the population
+
+## Data Dictionary
+
+| Variable | Description.                    | Data Type | Constraints |
+|:---------|:--------------------------------|:----------|:------------|
+| MEDV    | Median value of owner-occupied homes in $1000s | Numeric | 
+| CRIM    | Per capita crime rate by town | Numeric | 
+| ZN      | Proportion of residential land zoned for lots over 25,000 sqft | Numeric | 
+| INDUS   | Proportion of non-retail business acres per town | Numeric |
+| CHAS    | Charles River dummy variable (1 if tract bounds river; 0 otherwise) | Binary |
+| NOX     | Nitric oxides concentration (parts per 10 million) | Numeric |
+| RM      | Average number of rooms per dwelling | Numeric |
+| AGE     | Proportion of owner-occupied units built prior to 1940 | Numeric |
+| DIS     | Weighted distances to five Boston employment centres | Numeric |
+| RAD     | Index of accessibility to radial highways | Numeric |
+| TAX     | Full-value property tax rate per $10,000 | Numeric |
+| PTRATIO | Pupil-teacher ratio by town | Numeric |
+| B       | 1000(Bk - 0.63)^2 where Bk is the proportion of black residents by town | Numeric |
+| LSTAT   | Percentage of lower status of the population | Numeric |
+
+## Initial Data Exploration
+
+
+\newpage
+
+# Data Preparation
+## Handle missing data
+
+## Transform skewed data
+
+## Encode categorical variables
+
+## Feature scaling
+
+## Split the data
+
+
+
+
+\newpage
+
+# Modeling
+## Multiple Linear Regression
+
+## Principal Component Regression (PCR)
+
+## XGBoost Regressor
+
+
+\newpage
+
+# Evaluation
+
+
+
+\newpage
+
+# Deployment
+
+
+
+\newpage
+
+# Conclusion
+
+
+
+# References
+
+
+
