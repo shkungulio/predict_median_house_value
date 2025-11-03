@@ -44,7 +44,7 @@ options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 required_pkgs <- c("tidyverse","skimr","GGally","caret","pROC","vip","xgboost",
                    "Matrix","pls","broom","janitor","car","yardstick","cowplot",
-                   "ggrepel","patchwork","MASS")
+                   "ggrepel","patchwork","MASS", "e1071", "kableExtra")
 
 # Install and load each package
 for (pkg in required_pkgs) {
@@ -62,19 +62,48 @@ options(dplyr.summarise.inform = FALSE)
 
 # Business Understanding
 ## Introduction
+The Boston housing market represents a complex interplay of social, economic, and environmental factors that directly affect property values. Understanding these dynamics is essential for informed decision-making in real estate, urban planning, and public policy.
 
+This project seeks to analyze and predict the median value of owner-occupied homes (MEDV) in the Boston area using the Boston Housing Dataset from the MASS package in R. The dataset includes 506 observations and 14 attributes describing housing and neighborhood characteristics, such as per capita crime rate, average number of rooms, proximity to employment centers, and levels of air pollution.
+
+Through the application of advanced analytical techniques—Multiple Linear Regression, Principal Component Regression (PCR), and XGBoost Regressor—the study aims to build accurate predictive models and identify the most influential variables that explain housing price variability. Following the CRISP-DM framework, the process encompasses business understanding, data exploration, data preparation, modeling, evaluation, and deployment phases.
 
 ## Objectives
-The goal is to predict the median house value (MEDV) in Boston suburbs based on multiple explanatory variables such as crime rate, property tax, and number of rooms per dwelling.
+The main objectives of this project are as follows:
+
+* Primary Objective:
+  To develop predictive models capable of estimating the median value of owner-occupied homes (MEDV) in Boston suburbs based on socioeconomic and environmental predictors.
+
+* Secondary Objectives:
+  * To identify key variables influencing housing prices in Boston.
+  * To compare model performance between Multiple Linear Regression, Principal Component Regression, and XGBoost algorithms.
+  * To provide actionable insights for urban planners, real estate investors, and housing authorities to guide data-driven decisions.
+  * To demonstrate a reproducible, end-to-end analytical workflow following the CRISP-DM methodology.
 
 ## Problem Statement
-\begin{tcolorbox}[title=Problem statement]
-Boston’s housing authority wants to understand the key factors influencing housing prices and build an accurate model to estimate property values for decision-making, urban planning, and investment.
+Boston’s housing authority and urban developers face the challenge of accurately estimating property values across different neighborhoods. Property valuation depends on multiple interrelated factors—such as crime rate, accessibility to major roads, environmental quality, and local amenities—which can be difficult to model using traditional statistical techniques alone.
+
+\begin{tcolorbox}[title=This project aims to answer the following key questions:]
+
+1. Which socioeconomic and environmental factors most strongly influence housing prices in the Boston area?
+
+2. How can predictive modeling improve the estimation of housing values compared to conventional assessment methods?
+
+3. Can machine learning models such as XGBoost enhance prediction accuracy and interpretability for policy and investment use?
 \end{tcolorbox}
 
 ## Success Criteria
-* Predictive: Achieve high accuracy (e.g., R² > 0.80) and low error (e.g., RMSE < 3) on unseen data.
-* Business: Identify the top predictors of house price to guide policy or investment.
+To determine the success of this project, both predictive and business metrics are defined:
+
+* Predictive Success:
+  * Achieve R² >= 0.80 and RMSE <= 3.0 on the test dataset.
+  * Ensure generalization through cross-validation and avoid overfitting.
+  * Compare performance across regression techniques and select the most robust model.
+
+* Business Success:
+  * Identify the top five predictors of housing value to support policy and investment strategies.
+  * Deliver interpretable insights for urban planners and real estate analysts to optimize housing development and pricing strategies.
+  * Provide a scalable and reproducible model pipeline for future data integration or policy forecasting.
 
 \newpage
 
@@ -83,49 +112,90 @@ Boston’s housing authority wants to understand the key factors influencing hou
 The dataset used in this analysis is the Boston Housing Dataset, which contains information about various attributes of houses in Boston suburbs. The dataset is publicly available and can be accessed through the `MASS` package in R.
 ```{r load-data}
 data("Boston", package = "MASS")
-boston_data <- as_tibble(Boston)
-glimpse(boston_data)
+boston.df <- as_tibble(Boston) |>
+  clean_names()
+
+head(boston.df)
 ```
 
 ## Data Description
-The dataset includes the following variables:
+The dataset used in this project is the Boston Housing Dataset, originally published in the Harrison and Rubinfeld (1978) study and included in the MASS package in R. It contains 506 observations and 14 variables describing socioeconomic, demographic, environmental, and structural characteristics of housing in Boston suburbs. The dataset is commonly used for predictive modeling and regression analysis tasks, particularly for estimating housing values.
 
-* MEDV: Median value of owner-occupied homes in $1000s (target variable)
-* CRIM: Per capita crime rate by town
-* ZN: Proportion of residential land zoned for lots over 25,000 sqft
-* INDUS: Proportion of non-retail business acres per town
-* CHAS: Charles River dummy variable (1 if tract bounds river; 0 otherwise)
-* NOX: Nitric oxides concentration (parts per 10 million)
-* RM: Average number of rooms per dwelling
-* AGE: Proportion of owner-occupied units built prior to 1940
-* DIS: Weighted distances to five Boston employment centres
-* RAD: Index of accessibility to radial highways
-* TAX: Full-value property tax rate per $10,000
-* PTRATIO: Pupil-teacher ratio by town
-* B: 1000(Bk - 0.63)^2 where Bk is the proportion of
+Each record represents a census tract in the Boston metropolitan area, with the target variable being the median value of owner-occupied homes (MEDV) expressed in $1000s.
 
-* LSTAT: Percentage of lower status of the population
+The features cover a wide range of factors that influence property values — including crime rates, industrial activity, environmental quality, accessibility to major roads, and education levels. These variables provide a multi-dimensional view of the housing environment, making the dataset suitable for developing regression and machine learning models to predict housing prices.
 
 ## Data Dictionary
 
-| Variable | Description.                    | Data Type | Constraints |
-|:---------|:--------------------------------|:----------|:------------|
-| MEDV    | Median value of owner-occupied homes in $1000s | Numeric | 
-| CRIM    | Per capita crime rate by town | Numeric | 
-| ZN      | Proportion of residential land zoned for lots over 25,000 sqft | Numeric | 
-| INDUS   | Proportion of non-retail business acres per town | Numeric |
-| CHAS    | Charles River dummy variable (1 if tract bounds river; 0 otherwise) | Binary |
-| NOX     | Nitric oxides concentration (parts per 10 million) | Numeric |
-| RM      | Average number of rooms per dwelling | Numeric |
-| AGE     | Proportion of owner-occupied units built prior to 1940 | Numeric |
-| DIS     | Weighted distances to five Boston employment centres | Numeric |
-| RAD     | Index of accessibility to radial highways | Numeric |
-| TAX     | Full-value property tax rate per $10,000 | Numeric |
-| PTRATIO | Pupil-teacher ratio by town | Numeric |
-| B       | 1000(Bk - 0.63)^2 where Bk is the proportion of black residents by town | Numeric |
-| LSTAT   | Percentage of lower status of the population | Numeric |
+| Variable | Description                        | Data Type | Constraints/Rule |
+|:---------|:-----------------------------------|:----------|:-----------------|
+| **crim** | Per capita crime rate by town | Numeric | >= 0 |
+| **zn**  | Proportion of residential land zoned for lots over 25,000 sq.ft. | Numeric | 0 <= **zn** <= 100 |
+| **indus** | Proportion of non-retail business acres per town | Numeric | >= 0 |
+| **chas** | Charles River dummy variable (1 if tract bounds river; 0 otherwise) | Integer | 0 or 1 |
+| **nox** | Nitric oxides concentration (parts per 10 million) | Numeric | 0 < **nox** <= 1 |
+| **rm** | Average number of rooms per dwelling | Numeric | > 0 |
+| **age** | Proportion of owner-occupied units built prior to 1940 (%) | Numeric | 0 <= **age** <= 100 |
+| **dis** | Weighted distances to five Boston employment centers | Numeric | > 0 |
+| **rad** | Index of accessibility to radial highways | Integer | 1–24 |
+| **tax** | Full-value property-tax rate per $10,000 | Numeric | > 0 |
+| **ptratio** | Pupil-teacher ratio by town | Numeric | > 0 |
+| **black** | (1000(Bk - 0.63)^2), where Bk is the proportion of Black residents by town | Numeric | >= 0 |
+| **lstat** | Percentage of lower status of the population | Numeric | 0 <= **lstat** <= 100 |
+| **medv** | Median value of owner-occupied homes in $1000s (Target variable) | Numeric | > 0 (typically capped at 50 in dataset) |
+
+
+## Key Observations
+* The dataset does not contain missing values, making it well-suited for direct modeling.
+* Some predictors (e.g., CRIM, LSTAT, RM) exhibit skewness that may require transformation.
+* The target variable (MEDV) is continuous and typically ranges between $5,000 and $50,000, with values above 50 capped in the dataset.
+* There is potential multicollinearity between some predictors (e.g., RAD and TAX), which will be explored during modeling and addressed using dimensionality reduction or regularization techniques.
 
 ## Initial Data Exploration
+### Basic coercions for exploration
+```{r}
+boston.df <- boston.df |>
+  mutate(chas = factor(chas, levels = c(0, 1),
+                       labels = c("No", "Yes")),
+         rad = as.integer(rad))
+
+glimpse(boston.df)
+```
+
+### High-level summary
+```{r}
+skim(boston.df)
+summary(boston.df)
+```
+
+### Univariate analysis
+**Skewness table**
+```{r}
+numeric_vars <- boston.df |> select_if(is.numeric) |> names()
+
+skewness_values <- boston.df |>
+  summarize(across(all_of(numeric_vars), ~ e1071::skewness(.))) |>
+  pivot_longer(everything(), names_to = "Variable", values_to = "Skewness") |>
+  arrange(desc(abs(Skewness)))
+
+kable(skewness_values, digit=2, caption = "Skewness of numeric variables")
+```
+**Histograms of numeric variables**
+```{r}
+boston.df |>
+  pivot_longer(cols = all_of(numeric_vars)) |>
+  ggplot(aes(value)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+  facet_wrap(~ name, scales = "free", ncol=5) +
+  labs(title = "Histograms of Numeric Variables",
+       x = NULL, y = "Count")
+```
+
+### Bivariate analysis
+**Correlation matrix for numeric variables**
+```{r}
+
+```
 
 
 \newpage
