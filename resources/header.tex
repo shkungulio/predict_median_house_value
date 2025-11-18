@@ -1,10 +1,7 @@
 % ------------------------------------------------------------
-\usepackage{titling}
-  \pretitle{%
-  \begin{center}
-  \LARGE
-  \includegraphics[width=12cm]{resources/image_cover.png}
-  \\[\bigskipamount]
-  }
-\posttitle{\end{center}}
+
+\usepackage{pdfpages}
+\AtBeginDocument{\includepdf[pages={1}, width=\paperwidth, 
+height=\paperheight]{resources/template.png}
+}
 % ------------------------------------------------------------
