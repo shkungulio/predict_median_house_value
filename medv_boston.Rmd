@@ -1,18 +1,17 @@
 ---
 title: "Predicting Median House Value in Boston"
 author: "Seif H. Kungulio"
-date: "`r format(Sys.Date(), '%B %d, %Y')`"
+date: "November 01, 2025"
 description: "A comprehensive analysis to predict median house values in Boston suburbs using various machine learning techniques."
 categories: [Data Science, Machine Learning, R]
 tags: [Regression, Random Forest, Data Preparation, Model Evaluation]
-output:
+output: 
   pdf_document:
-    toc: true
-    number_sections: true
+    latex_engine: xelatex
+    toc: false
     highlight: espresso
     include:
       in_header: resources/header.tex
-    latex_engine: xelatex
 header-includes:
   # Font and color setup
   - \usepackage{xcolor}
@@ -58,7 +57,19 @@ theme_set(theme_minimal(base_size = 12))
 options(dplyr.summarise.inform = FALSE)
 ```
 
+\pagenumbering{gobble}
+
 \newpage
+\thispagestyle{plain}
+&nbsp;
+
+\newpage
+\pagenumbering{roman}
+\tableofcontents
+
+\newpage
+\pagenumbering{arabic}
+
 
 # Business Understanding
 ## Introduction
