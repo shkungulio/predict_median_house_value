@@ -1,7 +1,12 @@
 ---
-title: "Predicting Median House Value in Boston"
-author: "Seif H. Kungulio"
-date: "November 01, 2025"
+title: |
+  \vspace*{\fill}
+  \fontsize{36}{40}\selectfont \textbf {Predicting Median House Value in Boston}
+author: |
+  \fontsize{24}{28}\selectfont Seif H. Kungulio
+date: |
+  \fontsize{18}{22}\selectfont November 01, 2025
+  \ \vspace*{\fill}
 description: "A comprehensive analysis to predict median house values in Boston suburbs using various machine learning techniques."
 categories: [Data Science, Machine Learning, R]
 tags: [Regression, Random Forest, Data Preparation, Model Evaluation]
