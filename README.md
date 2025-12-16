@@ -1,4 +1,4 @@
-[!Project Cover](resources/template.png)
+![Project Cover](resources/template.png)
 
 # Predicting Median House Value in Boston
 
