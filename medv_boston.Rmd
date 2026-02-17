@@ -344,8 +344,8 @@ rf_metrics
 
 ### Feature Importane (Random Forest)
 ```{r}
-rf_final <- randomForest(rf_fit$finalModel)
-imp <- importance(rf_final)
+rf_final <- rf_fit$finalModel
+imp <- randomForest::importance(rf_final)
 imp_df <- tibble(
   Feature = rownames(imp),
   Importance = imp[,1]
