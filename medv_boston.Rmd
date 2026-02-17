@@ -46,9 +46,9 @@ options(repos = c(CRAN = "https://cloud.r-project.org"))
 # List of required packages
 
 
-required_pkgs <- c("tidyverse","skimr","GGally","caret","pROC","vip","xgboost",
+required_pkgs <- c("MASS", "tidyverse","skimr", "caret","pROC","vip","xgboost",
                    "Matrix","pls","broom","janitor","car","yardstick","cowplot",
-                   "ggrepel","patchwork","MASS", "e1071", "kableExtra")
+                   "ggrepel","patchwork", "e1071", "kableExtra", "glmnet", "randomForest", "ranger", "corrplot")
 
 # Install and load each package
 for (pkg in required_pkgs) {
@@ -76,62 +76,36 @@ options(dplyr.summarise.inform = FALSE)
 \pagenumbering{arabic}
 
 
-# Business Understanding
-## Introduction
-The Boston housing market represents a complex interplay of social, economic, and environmental factors that directly affect property values. Understanding these dynamics is essential for informed decision-making in real estate, urban planning, and public policy.
-
-This project seeks to analyze and predict the median value of owner-occupied homes (MEDV) in the Boston area using the Boston Housing Dataset from the MASS package in R. The dataset includes 506 observations and 14 attributes describing housing and neighborhood characteristics, such as per capita crime rate, average number of rooms, proximity to employment centers, and levels of air pollution.
-
-Through the application of advanced analytical techniques—Multiple Linear Regression, Principal Component Regression (PCR), and XGBoost Regressor—the study aims to build accurate predictive models and identify the most influential variables that explain housing price variability. Following the CRISP-DM framework, the process encompasses business understanding, data exploration, data preparation, modeling, evaluation, and deployment phases.
-
-## Objectives
-The main objectives of this project are as follows:
-
-* Primary Objective:
-  To develop predictive models capable of estimating the median value of owner-occupied homes (MEDV) in Boston suburbs based on socioeconomic and environmental predictors.
-
-* Secondary Objectives:
-  * To identify key variables influencing housing prices in Boston.
-  * To compare model performance between Multiple Linear Regression, Principal Component Regression, and XGBoost algorithms.
-  * To provide actionable insights for urban planners, real estate investors, and housing authorities to guide data-driven decisions.
-  * To demonstrate a reproducible, end-to-end analytical workflow following the CRISP-DM methodology.
-
-## Problem Statement
+# **Business Understanding**
+## Background & Problem Statement
 Boston’s housing authority and urban developers face the challenge of accurately estimating property values across different neighborhoods. Property valuation depends on multiple interrelated factors—such as crime rate, accessibility to major roads, environmental quality, and local amenities—which can be difficult to model using traditional statistical techniques alone.
 
-\begin{tcolorbox}[title=This project aims to answer the following key questions:]
+## Business Objectives
+Build a predictive model to estimate median owner-occupied home value (medv) using neighborhood-level indicators. The goal is to support:
 
-1. Which socioeconomic and environmental factors most strongly influence housing prices in the Boston area?
-
-2. How can predictive modeling improve the estimation of housing values compared to conventional assessment methods?
-
-3. Can machine learning models such as XGBoost enhance prediction accuracy and interpretability for policy and investment use?
-\end{tcolorbox}
+* neighborhood investment planning,
+* redevelopment prioritization,
+* and value forecasting under changing conditions.
 
 ## Success Criteria
-To determine the success of this project, both predictive and business metrics are defined:
-
-* Predictive Success:
-  * Achieve R² >= 0.80 and RMSE <= 3.0 on the test dataset.
-  * Ensure generalization through cross-validation and avoid overfitting.
-  * Compare performance across regression techniques and select the most robust model.
-
-* Business Success:
-  * Identify the top five predictors of housing value to support policy and investment strategies.
-  * Deliver interpretable insights for urban planners and real estate analysts to optimize housing development and pricing strategies.
-  * Provide a scalable and reproducible model pipeline for future data integration or policy forecasting.
+* **Primary metric:** RMSE (lower is better)
+* **Secondary metrics:** MAE and R²
+* **Practical goal:** A model that generalizes well (low validation error) and offers interpretable drivers (feature importance / coefficients).
 
 \newpage
 
-# Data Understanding
+# **Data Understanding**
 ## Data Collection
 The dataset used in this analysis is the Boston Housing Dataset, which contains information about various attributes of houses in Boston suburbs. The dataset is publicly available and can be accessed through the `MASS` package in R.
 ```{r load-data}
 data("Boston", package = "MASS")
-boston.df <- as_tibble(Boston) |>
-  clean_names()
+boston.df <- Boston
 
-head(boston.df)
+#boston.df <- as_tibble(Boston) |>
+#  clean_names()
+
+glimpse(boston.df)
+summary(boston.df$medv)
 ```
 
 ## Data Description
@@ -160,96 +134,322 @@ The features cover a wide range of factors that influence property values — in
 | **lstat** | Percentage of lower status of the population | Numeric | 0 <= **lstat** <= 100 |
 | **medv** | Median value of owner-occupied homes in $1000s (Target variable) | Numeric | > 0 (typically capped at 50 in dataset) |
 
-
-## Key Observations
-* The dataset does not contain missing values, making it well-suited for direct modeling.
-* Some predictors (e.g., CRIM, LSTAT, RM) exhibit skewness that may require transformation.
-* The target variable (MEDV) is continuous and typically ranges between $5,000 and $50,000, with values above 50 capped in the dataset.
-* There is potential multicollinearity between some predictors (e.g., RAD and TAX), which will be explored during modeling and addressed using dimensionality reduction or regularization techniques.
-
-## Initial Data Exploration
-### Basic coercions for exploration
+## Data Quality Assessment
 ```{r}
-boston.df <- boston.df |>
-  mutate(chas = factor(chas, levels = c(0, 1),
-                       labels = c("No", "Yes")),
-         rad = as.integer(rad))
+# Missing values
+colSums(is.na(boston.df))
 
-glimpse(boston.df)
-```
+# Duplicates
+sum(duplicated(boston.df))
 
-### High-level summary
-```{r}
+# Quick profile
 skim(boston.df)
-summary(boston.df)
 ```
 
-### Univariate analysis
-**Skewness table**
-```{r}
-numeric_vars <- boston.df |> select_if(is.numeric) |> names()
 
-skewness_values <- boston.df |>
-  summarize(across(all_of(numeric_vars), ~ e1071::skewness(.))) |>
-  pivot_longer(everything(), names_to = "Variable", values_to = "Skewness") |>
-  arrange(desc(abs(Skewness)))
-
-kable(skewness_values, digit=2, caption = "Skewness of numeric variables")
-```
-**Histograms of numeric variables**
+## Exploratory Data Analysis (EDA)
+### Target variable distribution
 ```{r}
-boston.df |>
-  pivot_longer(cols = all_of(numeric_vars)) |>
-  ggplot(aes(value)) +
-  geom_histogram(bins = 30, fill = "steelblue", color = "white") +
-  facet_wrap(~ name, scales = "free", ncol=5) +
-  labs(title = "Histograms of Numeric Variables",
-       x = NULL, y = "Count")
+ggplot(boston.df, aes(medv)) +
+  geom_histogram(bins = 30) +
+  labs(title = "Distribution of Median Home Value (medv)", x = "medv ($1000s)", y = "Count")
 ```
 
-### Bivariate analysis
-**Correlation matrix for numeric variables**
+### Relationship with key predictors
 ```{r}
+p1 <- ggplot(boston.df, aes(rm, medv)) + geom_point(alpha = 0.6) + geom_smooth(method="lm", se=FALSE) +
+  labs(title="medv vs rm (rooms)")
+p2 <- ggplot(boston.df, aes(lstat, medv)) + geom_point(alpha = 0.6) + geom_smooth(method="lm", se=FALSE) +
+  labs(title="medv vs lstat")
+p3 <- ggplot(boston.df, aes(crim, medv)) + geom_point(alpha = 0.6) + scale_x_log10() +
+  geom_smooth(method="lm", se=FALSE) + labs(title="medv vs crim (log scale)")
+p4 <- ggplot(boston.df, aes(nox, medv)) + geom_point(alpha = 0.6) + geom_smooth(method="lm", se=FALSE) +
+  labs(title="medv vs nox")
 
+(p1 | p2) / (p3 | p4)
+```
+
+### Correlation Overview
+
+```{r}
+num_df <- boston.df %>% select(where(is.numeric))
+corr <- cor(num_df)
+
+corrplot(corr, method = "color", type = "lower", tl.cex = 0.7)
 ```
 
 
 \newpage
 
-# Data Preparation
-## Handle missing data
+# **Data Preparation**
+## Train/ Test Split
+```{r}
+set.seed(123)
+idx <- createDataPartition(boston.df$medv, p = 0.8, list = FALSE)
+train <- boston.df[idx, ]
+test  <- boston.df[-idx, ]
 
-## Transform skewed data
+dim(train); dim(test)
+```
 
-## Encode categorical variables
+## Preprocessing Recipe
+```{r}
+preproc <- preProcess(
+  train %>% select(-medv),
+  method = c("center", "scale")
+)
 
-## Feature scaling
+x_train <- predict(preproc, train %>% select(-medv))
+x_test  <- predict(preproc, test %>% select(-medv))
 
-## Split the data
-
-
+y_train <- train$medv
+y_test  <- test$medv
+```
 
 
 \newpage
 
-# Modeling
+# **Modeling**
+## Evaluation Setup (Cross-Validation)
+```{r}
+ctrl <- trainControl(
+  method = "repeatedcv",
+  number = 10,
+  repeats = 3
+)
+
+rmse <- function(actual, pred) sqrt(mean((actual - pred)^2))
+mae  <- function(actual, pred) mean(abs(actual - pred))
+r2   <- function(actual, pred) cor(actual, pred)^2
+```
+
+## Baseline Model (Mean Predictor)
+```{r}
+baseline_pred <- rep(mean(y_train), length(y_test))
+
+baseline_metrics <- tibble(
+  Model = "Baseline (Train Mean)",
+  RMSE = rmse(y_test, baseline_pred),
+  MAE  = mae(y_test, baseline_pred),
+  R2   = r2(y_test, baseline_pred)
+)
+
+baseline_metrics
+```
+
 ## Multiple Linear Regression
+```{r}
+lm_fit <- train(
+  medv ~ ., data = train,
+  method = "lm",
+  trControl = ctrl
+)
 
-## Principal Component Regression (PCR)
+lm_pred <- predict(lm_fit, newdata = test)
 
-## XGBoost Regressor
+lm_metrics <- tibble(
+  Model = "Linear Regression",
+  RMSE = rmse(y_test, lm_pred),
+  MAE  = mae(y_test, lm_pred),
+  R2   = r2(y_test, lm_pred)
+)
+
+lm_fit
+lm_metrics
+```
+
+### Diagnostics (Residuals)
+```{r}
+res <- y_test - lm_pred
+
+p_res1 <- ggplot(tibble(pred=lm_pred, res=res), aes(pred, res)) +
+  geom_point(alpha=0.6) + geom_hline(yintercept = 0) +
+  labs(title="Residuals vs Predictions", x="Predicted medv", y="Residual")
+
+p_res2 <- ggplot(tibble(res=res), aes(sample=res)) +
+  stat_qq() + stat_qq_line() +
+  labs(title="Residual QQ Plot")
+
+p_res1 | p_res2
+```
+
+## Regularized Regression (Elastic Net via glmnet)
+```{r}
+grid_glmnet <- expand.grid(
+  alpha  = seq(0, 1, by = 0.25),
+  lambda = 10^seq(-3, 1, length.out = 40)
+)
+
+glmnet_fit <- train(
+  x = as.matrix(x_train),
+  y = y_train,
+  method = "glmnet",
+  trControl = ctrl,
+  tuneGrid = grid_glmnet
+)
+
+glmnet_pred <- predict(glmnet_fit, newdata = as.matrix(x_test))
+
+glmnet_metrics <- tibble(
+  Model = "Elastic Net (glmnet)",
+  RMSE = rmse(y_test, glmnet_pred),
+  MAE  = mae(y_test, glmnet_pred),
+  R2   = r2(y_test, glmnet_pred)
+)
+
+glmnet_fit
+glmnet_metrics
+```
+
+### Coefficient (Interpretable Drivers)
+```{r}
+best <- glmnet_fit$bestTune
+best
+
+final_glmnet <- glmnet_fit$finalModel
+coef_mat <- coef(final_glmnet, s = best$lambda)
+
+coef_df <- tibble(
+  term = rownames(as.matrix(coef_mat)),
+  estimate = as.numeric(as.matrix(coef_mat))
+) %>%
+  filter(term != "(Intercept)") %>%
+  arrange(desc(abs(estimate)))
+
+head(coef_df, 12)
+```
+
+## Random Forest (Non-linear + Interactions)
+```{r}
+set.seed(42)
+rf_fit <- train(
+  medv ~ ., data = train,
+  method = "rf",
+  trControl = ctrl,
+  tuneLength = 8
+)
+
+rf_pred <- predict(rf_fit, newdata = test)
+
+rf_metrics <- tibble(
+  Model = "Random Forest",
+  RMSE = rmse(y_test, rf_pred),
+  MAE  = mae(y_test, rf_pred),
+  R2   = r2(y_test, rf_pred)
+)
+
+rf_fit
+rf_metrics
+```
+
+### Feature Importane (Random Forest)
+```{r}
+rf_final <- randomForest(rf_fit$finalModel)
+imp <- importance(rf_final)
+imp_df <- tibble(
+  Feature = rownames(imp),
+  Importance = imp[,1]
+) %>% arrange(desc(Importance))
+
+head(imp_df, 12)
+
+ggplot(imp_df %>% slice_max(Importance, n=12),
+       aes(reorder(Feature, Importance), Importance)) +
+  geom_col() +
+  coord_flip() +
+  labs(title="Top Feature Importances (Random Forest)", 
+       x=NULL, 
+       y="Importance")
+```
+
+\newpage
+
+# **Evaluation**
+## Compare Models on Test Set
+```{r}
+results <- bind_rows(baseline_metrics, 
+                     lm_metrics, 
+                     glmnet_metrics, 
+                     rf_metrics) %>%
+  arrange(RMSE)
+
+results
+```
+
+
+## Prediction Quality Plot (Best Model)
+```{r}
+best_model <- results$Model[1]
+best_model
+
+best_pred <- switch(
+  best_model,
+  "Baseline (Train Mean)" = baseline_pred,
+  "Linear Regression" = lm_pred,
+  "Elastic Net (glmnet)" = glmnet_pred,
+  "Random Forest" = rf_pred
+)
+
+plot_df <- tibble(
+  actual = y_test,
+  predicted = best_pred
+)
+
+ggplot(plot_df, aes(actual, predicted)) +
+  geom_point(alpha = 0.7) +
+  geom_abline(slope = 1, intercept = 0) +
+  labs(
+    title = paste("Actual vs Predicted (Best Model:", best_model, ")"),
+    x = "Actual medv",
+    y = "Predicted medv"
+  )
+```
+
+## Error Analysis (Where the model misses)
+```{r}
+plot_df <- plot_df %>%
+  mutate(error = actual - predicted,
+         abs_error = abs(error)) %>%
+  arrange(desc(abs_error))
+
+head(plot_df, 10)
+
+ggplot(plot_df, aes(error)) +
+  geom_histogram(bins = 30) +
+  labs(title="Prediction Error Distribution", 
+       x="Actual - Predicted", 
+       y="Count")
+```
 
 
 \newpage
 
-# Evaluation
+# **Deployment**
+```{r}
+score_medv <- function(newdata, best_model_name = best_model) {
+  # Ensure columns match training structure
+  if (!all(names(train %>% select(-medv)) %in% names(newdata))) {
+    stop("newdata must include all predictor columns used in training.")
+  }
+  newdata <- newdata %>% select(names(train %>% select(-medv)))
 
+  pred <- switch(
+    best_model_name,
+    "Linear Regression" = predict(lm_fit, newdata = newdata),
+    "Elastic Net (glmnet)" = {
+      x_new <- predict(preproc, newdata)
+      predict(glmnet_fit, newdata = as.matrix(x_new))
+    },
+    "Random Forest" = predict(rf_fit, newdata = newdata),
+    rep(mean(y_train), nrow(newdata))
+  )
+  return(as.numeric(pred))
+}
 
-
-\newpage
-
-# Deployment
-
+# Example: score the first 3 rows of the test set predictors
+example_new <- test %>% select(-medv) %>% slice(1:3)
+score_medv(example_new)
+```
 
 
 \newpage
@@ -257,6 +457,7 @@ boston.df |>
 # Conclusion
 
 
+\newpage
 
 # References
 
