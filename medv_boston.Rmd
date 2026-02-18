@@ -96,7 +96,10 @@ Build a predictive model to estimate median owner-occupied home value (medv) usi
 
 # **Data Understanding**
 ## Data Collection
-The dataset used in this analysis is the Boston Housing Dataset, which contains information about various attributes of houses in Boston suburbs. The dataset is publicly available and can be accessed through the `MASS` package in R.
+The Boston Housing dataset is loaded from the `MASS` package and assigned to the object `boston.df`. A structural inspection is performed using `glimpse()` to verify the number of observations, variable types, and overall dataset organization. This step ensures that the dataset is correctly loaded and ready for analysis.
+
+A descriptive statistical summary of the target variable (medv) is generated to evaluate its range, central tendency, and dispersion. This preliminary assessment provides insight into the scale and distribution of housing values prior to model development.
+
 ```{r load-data}
 data("Boston", package = "MASS")
 boston.df <- Boston
@@ -132,6 +135,8 @@ The features cover a wide range of factors that influence property values — in
 | **medv** | Median value of owner-occupied homes in $1000s (Target variable) | Numeric | > 0 (typically capped at 50 in dataset) |
 
 ## Data Quality Assessment
+Data integrity is assessed by examining the presence of missing values and duplicate observations. The `skim()` function is additionally employed to produce a comprehensive statistical profile of all variables. Confirming data completeness and consistency is essential before proceeding to exploratory and predictive analysis.
+
 ```{r}
 # Missing values
 colSums(is.na(boston.df))
@@ -146,6 +151,8 @@ skim(boston.df)
 
 ## Exploratory Data Analysis (EDA)
 ### Target variable distribution
+The distribution of median housing values is visualized using a histogram. This visualization facilitates assessment of skewness, variability, and potential boundary effects, including the known upper cap of the `medv` variable in the dataset.
+
 ```{r}
 ggplot(boston.df, aes(medv)) +
   geom_histogram(bins = 30) +
@@ -155,6 +162,8 @@ ggplot(boston.df, aes(medv)) +
 ```
 
 ### Relationship with key predictors
+Scatterplots are generated to examine bivariate relationships between median housing value and selected predictors, including average number of rooms (`rm`), lower-status population percentage (`lstat`), crime rate (`crim`), and nitrogen oxide concentration (`nox`). Linear trend lines are included to illustrate directionality and strength of association. These visualizations provide initial evidence of potential predictive relationships.
+
 ```{r}
 p1 <- ggplot(boston.df, aes(rm, medv)) + geom_point(alpha = 0.6) + 
   geom_smooth(method="lm", se=FALSE) +
@@ -176,6 +185,7 @@ p4 <- ggplot(boston.df, aes(nox, medv)) +
 ```
 
 ### Correlation Overview
+A correlation matrix is computed for all numeric variables and visualized using a heatmap. This analysis identifies strong linear associations among predictors and highlights potential multicollinearity concerns that may influence regression-based modeling approaches.
 
 ```{r}
 num_df <- boston.df %>% select(where(is.numeric))
@@ -189,6 +199,8 @@ corrplot(corr, method = "color", type = "lower", tl.cex = 0.7)
 
 # **Data Preparation**
 ## Train/ Test Split
+The dataset is partitioned into training (80%) and testing (20%) subsets using stratified sampling based on the target variable. This separation enables unbiased evaluation of model generalization performance on unseen data.
+
 ```{r}
 set.seed(123)
 idx <- createDataPartition(boston.df$medv, p = 0.8, list = FALSE)
@@ -199,6 +211,8 @@ dim(train); dim(test)
 ```
 
 ## Preprocessing Recipe
+Predictor variables are standardized through centering and scaling transformations estimated on the training data. The same transformations are subsequently applied to the test set to ensure consistency and to prevent data leakage. Standardization is particularly important for regularized regression techniques.
+
 ```{r}
 preproc <- preProcess(
   train %>% select(-medv),
@@ -217,6 +231,10 @@ y_test  <- test$medv
 
 # **Modeling**
 ## Evaluation Setup (Cross-Validation)
+A repeated 10-fold cross-validation strategy is specified to obtain stable and reliable estimates of model performance. Repetition reduces variance in resampling estimates and enhances robustness in model comparison.
+
+Custom functions are defined to compute Root Mean Squared Error (`RMSE`), Mean Absolute Error (`MAE`), and Coefficient of Determination (`R^2`). These metrics are applied consistently across all candidate models to ensure comparability.
+
 ```{r}
 ctrl <- trainControl(
   method = "repeatedcv",
@@ -230,6 +248,8 @@ r2   <- function(actual, pred) cor(actual, pred)^2
 ```
 
 ## Baseline Model (Mean Predictor)
+A baseline model is constructed by predicting the mean of the training target variable for all test observations. This benchmark establishes a minimum performance threshold that subsequent predictive models are expected to exceed.
+
 ```{r}
 baseline_pred <- rep(mean(y_train), length(y_test))
 
@@ -244,6 +264,8 @@ baseline_metrics
 ```
 
 ## Multiple Linear Regression
+A multiple linear regression model is trained using all available predictors. Cross-validation is applied during training to estimate performance stability. Predictions are generated on the test dataset to assess out-of-sample performance.
+
 ```{r}
 lm_fit <- train(
   medv ~ ., data = train,
@@ -265,6 +287,8 @@ lm_metrics
 ```
 
 ### Diagnostics (Residuals)
+Diagnostic plots are produced to evaluate regression assumptions, including homoscedasticity and normality of residuals. Residual-versus-predicted plots assess systematic bias, while Q–Q plots evaluate deviation from normality.
+
 ```{r}
 res <- y_test - lm_pred
 
@@ -283,6 +307,8 @@ p_res1 | p_res2
 ```
 
 ## Regularized Regression (Elastic Net via glmnet)
+An Elastic Net regression model is trained to address potential multicollinearity and overfitting. A grid search over alpha (mixing parameter) and lambda (regularization strength) is conducted within the cross-validation framework to identify optimal hyperparameters.
+
 ```{r}
 grid_glmnet <- expand.grid(
   alpha  = seq(0, 1, by = 0.25),
@@ -311,6 +337,8 @@ glmnet_metrics
 ```
 
 ### Coefficient (Interpretable Drivers)
+Coefficients from the optimal Elastic Net model are extracted and ranked according to magnitude. This analysis highlights the most influential predictors contributing to variations in median housing value, enhancing interpretability.
+
 ```{r}
 best <- glmnet_fit$bestTune
 best
@@ -329,6 +357,8 @@ head(coef_df, 12)
 ```
 
 ## Random Forest (Non-linear + Interactions)
+A Random Forest model is trained to capture non-linear relationships and higher-order interactions among predictors. Hyperparameter tuning is conducted via cross-validation to determine the optimal number of variables sampled at each split (`mtry`).
+
 ```{r}
 set.seed(42)
 rf_fit <- train(
@@ -352,6 +382,8 @@ rf_metrics
 ```
 
 ### Feature Importane (Random Forest)
+Variable importance scores are extracted from the final Random Forest model and visualized to identify the most influential predictors. This provides insight into non-linear driver contributions within the ensemble framework.
+
 ```{r}
 rf_final <- rf_fit$finalModel
 imp <- randomForest::importance(rf_final)
@@ -375,6 +407,8 @@ ggplot(imp_df %>% slice_max(Importance, n=12),
 
 # **Evaluation**
 ## Compare Models on Test Set
+Performance metrics from all candidate models are consolidated into a single comparison table and ranked by RMSE. This systematic evaluation identifies the model that demonstrates superior predictive accuracy on the test dataset.
+
 ```{r}
 results <- bind_rows(baseline_metrics, 
                      lm_metrics, 
@@ -387,6 +421,8 @@ results
 
 
 ## Prediction Quality Plot (Best Model)
+A scatterplot of actual versus predicted values is generated for the best-performing model. The 45-degree reference line facilitates visual assessment of prediction accuracy and systematic deviation.
+
 ```{r}
 best_model <- results$Model[1]
 best_model
@@ -415,6 +451,8 @@ ggplot(plot_df, aes(actual, predicted)) +
 ```
 
 ## Error Analysis (Where the model misses)
+Prediction errors are computed and ranked by absolute magnitude to identify observations where the model exhibits the largest deviations. A histogram of residuals is produced to assess distributional symmetry and potential bias.
+
 ```{r}
 plot_df <- plot_df %>%
   mutate(error = actual - predicted,
@@ -434,6 +472,10 @@ ggplot(plot_df, aes(error)) +
 \newpage
 
 # **Deployment**
+A reusable scoring function is implemented to enable prediction on new, unseen data. The function verifies predictor consistency with the training dataset and applies the appropriate model-specific transformations prior to generating predictions.
+
+The scoring function is demonstrated on a subset of test observations to simulate real-world deployment. This confirms that the trained model can be operationalized for practical use.
+
 ```{r}
 score_medv <- function(newdata, best_model_name = best_model) {
   # Ensure columns match training structure
