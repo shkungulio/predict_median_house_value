@@ -5,7 +5,7 @@ title: |
 author: |
   \fontsize{24}{28}\selectfont Seif H. Kungulio
 date: |
-  \fontsize{18}{22}\selectfont November 01, 2025
+  \fontsize{18}{22}\selectfont February 15, 2026
   \ \vspace*{\fill}
 description: "A comprehensive analysis to predict median house values in Boston suburbs using various machine learning techniques."
 categories: [Data Science, Machine Learning, R]
@@ -101,9 +101,6 @@ The dataset used in this analysis is the Boston Housing Dataset, which contains 
 data("Boston", package = "MASS")
 boston.df <- Boston
 
-#boston.df <- as_tibble(Boston) |>
-#  clean_names()
-
 glimpse(boston.df)
 summary(boston.df$medv)
 ```
@@ -152,18 +149,27 @@ skim(boston.df)
 ```{r}
 ggplot(boston.df, aes(medv)) +
   geom_histogram(bins = 30) +
-  labs(title = "Distribution of Median Home Value (medv)", x = "medv ($1000s)", y = "Count")
+  labs(title = "Distribution of Median Home Value (medv)", 
+       x = "medv ($1000s)", 
+       y = "Count")
 ```
 
 ### Relationship with key predictors
 ```{r}
-p1 <- ggplot(boston.df, aes(rm, medv)) + geom_point(alpha = 0.6) + geom_smooth(method="lm", se=FALSE) +
+p1 <- ggplot(boston.df, aes(rm, medv)) + geom_point(alpha = 0.6) + 
+  geom_smooth(method="lm", se=FALSE) +
   labs(title="medv vs rm (rooms)")
-p2 <- ggplot(boston.df, aes(lstat, medv)) + geom_point(alpha = 0.6) + geom_smooth(method="lm", se=FALSE) +
+p2 <- ggplot(boston.df, aes(lstat, medv)) + 
+  geom_point(alpha = 0.6) + 
+  geom_smooth(method="lm", se=FALSE) +
   labs(title="medv vs lstat")
-p3 <- ggplot(boston.df, aes(crim, medv)) + geom_point(alpha = 0.6) + scale_x_log10() +
-  geom_smooth(method="lm", se=FALSE) + labs(title="medv vs crim (log scale)")
-p4 <- ggplot(boston.df, aes(nox, medv)) + geom_point(alpha = 0.6) + geom_smooth(method="lm", se=FALSE) +
+p3 <- ggplot(boston.df, aes(crim, medv)) + 
+  geom_point(alpha = 0.6) + scale_x_log10() +
+  geom_smooth(method="lm", se=FALSE) + 
+  labs(title="medv vs crim (log scale)")
+p4 <- ggplot(boston.df, aes(nox, medv)) + 
+  geom_point(alpha = 0.6) + 
+  geom_smooth(method="lm", se=FALSE) +
   labs(title="medv vs nox")
 
 (p1 | p2) / (p3 | p4)
@@ -263,8 +269,11 @@ lm_metrics
 res <- y_test - lm_pred
 
 p_res1 <- ggplot(tibble(pred=lm_pred, res=res), aes(pred, res)) +
-  geom_point(alpha=0.6) + geom_hline(yintercept = 0) +
-  labs(title="Residuals vs Predictions", x="Predicted medv", y="Residual")
+  geom_point(alpha=0.6) + 
+  geom_hline(yintercept = 0) +
+  labs(title="Residuals vs Predictions", 
+       x="Predicted medv", 
+       y="Residual")
 
 p_res2 <- ggplot(tibble(res=res), aes(sample=res)) +
   stat_qq() + stat_qq_line() +
