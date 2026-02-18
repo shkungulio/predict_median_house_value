@@ -107,6 +107,7 @@ boston.df <- Boston
 glimpse(boston.df)
 summary(boston.df$medv)
 ```
+The Boston Housing dataset was loaded from the `MASS` package and inspected to confirm its structural integrity and dimensionality. The dataset contains 506 observations and 14 variables, including 13 predictors and the target variable `medv`, representing median home value in thousands of dollars. Summary statistics reveal that home values range from 5 to 50, with a mean of approximately 22.53 and a median of 21.2. The maximum value of 50 reflects a known ceiling effect in the dataset, where higher values were top-coded. This cap has modeling implications, as it can compress variation among high-priced tracts and potentially lead to systematic underprediction at the upper end of the market.
 
 ## Data Description
 The dataset used in this project is the Boston Housing Dataset, originally published in the Harrison and Rubinfeld (1978) study and included in the MASS package in R. It contains 506 observations and 14 variables describing socioeconomic, demographic, environmental, and structural characteristics of housing in Boston suburbs. The dataset is commonly used for predictive modeling and regression analysis tasks, particularly for estimating housing values.
@@ -147,7 +148,7 @@ sum(duplicated(boston.df))
 # Quick profile
 skim(boston.df)
 ```
-
+Comprehensive data validation confirmed that the dataset contains no missing values and no duplicate records, ensuring complete coverage across all predictors. The `skim()` profile further verified that all variables are numeric and span realistic ranges consistent with the dataset’s documentation. While data completeness is excellent, the summary statistics suggest the presence of skewed predictors (e.g., crime rate) and potentially influential outliers. These characteristics are common in socioeconomic datasets and support the need for both robust linear and non-linear modeling approaches.
 
 ## Exploratory Data Analysis (EDA)
 ### Target variable distribution
