@@ -161,6 +161,7 @@ ggplot(boston.df, aes(medv)) +
        x = "medv ($1000s)", 
        y = "Count")
 ```
+A histogram of `medv` shows a moderately skewed distribution with visible clustering near the upper limit of 50. This accumulation at the maximum value confirms the earlier observation of top-coding. The distribution suggests that while most properties cluster in the mid-range (\$15k–$30k), a subset approaches the imposed ceiling. From a modeling perspective, this truncation can distort error behavior for high-value neighborhoods and should be considered when interpreting prediction performance.
 
 ### Relationship with key predictors
 Scatterplots are generated to examine bivariate relationships between median housing value and selected predictors, including average number of rooms (`rm`), lower-status population percentage (`lstat`), crime rate (`crim`), and nitrogen oxide concentration (`nox`). Linear trend lines are included to illustrate directionality and strength of association. These visualizations provide initial evidence of potential predictive relationships.
@@ -184,6 +185,7 @@ p4 <- ggplot(boston.df, aes(nox, medv)) +
 
 (p1 | p2) / (p3 | p4)
 ```
+Scatterplots examining relationships between `medv` and selected predictors reveal strong and meaningful patterns. The number of rooms per dwelling (`rm`) shows a clear positive linear relationship with housing value, indicating that larger homes command higher prices. Conversely, the percentage of lower-status population (`lstat`) exhibits a strong negative association, suggesting socioeconomic composition significantly influences property valuation. Crime rate (`crim`), visualized on a log scale due to skewness, demonstrates a generally negative relationship with home values, while nitric oxide concentration (`nox`) also correlates negatively, reflecting the economic cost of environmental pollution. These patterns confirm domain expectations and suggest that both structural and socioeconomic variables are primary drivers of housing prices.
 
 ### Correlation Overview
 A correlation matrix is computed for all numeric variables and visualized using a heatmap. This analysis identifies strong linear associations among predictors and highlights potential multicollinearity concerns that may influence regression-based modeling approaches.
@@ -194,6 +196,7 @@ corr <- cor(num_df)
 
 corrplot(corr, method = "color", type = "lower", tl.cex = 0.7)
 ```
+The correlation heatmap highlights clusters of interrelated predictors, particularly among urban infrastructure and environmental variables. Several predictors display moderate to strong correlations, indicating potential multicollinearity. While this does not invalidate linear regression, it may affect coefficient stability and interpretability. The presence of correlated features justifies the inclusion of regularized regression (Elastic Net) and tree-based models (Random Forest), which are more resilient to multicollinearity and complex interactions.
 
 
 \newpage
@@ -210,6 +213,7 @@ test  <- boston.df[-idx, ]
 
 dim(train); dim(test)
 ```
+The dataset was partitioned into an 80% training set (407 observations) and a 20% test set (99 observations) using stratified sampling on the target variable. This ensures that model performance is evaluated on unseen data, preserving the integrity of generalization metrics. The holdout sample size is sufficient to produce reliable test estimates given the overall dataset size.
 
 ## Preprocessing Recipe
 Predictor variables are standardized through centering and scaling transformations estimated on the training data. The same transformations are subsequently applied to the test set to ensure consistency and to prevent data leakage. Standardization is particularly important for regularized regression techniques.
@@ -226,6 +230,7 @@ x_test  <- predict(preproc, test %>% select(-medv))
 y_train <- train$medv
 y_test  <- test$medv
 ```
+Predictors were centered and scaled using parameters learned exclusively from the training set to prevent data leakage. The same transformation was applied to the test set, ensuring consistency across modeling stages. Standardization is particularly critical for regularized regression models, where coefficient shrinkage depends on comparable feature scales.
 
 
 \newpage
@@ -248,6 +253,7 @@ mae  <- function(actual, pred) mean(abs(actual - pred))
 r2   <- function(actual, pred) cor(actual, pred)^2
 ```
 
+
 ## Baseline Model (Mean Predictor)
 A baseline model is constructed by predicting the mean of the training target variable for all test observations. This benchmark establishes a minimum performance threshold that subsequent predictive models are expected to exceed.
 
@@ -263,6 +269,7 @@ baseline_metrics <- tibble(
 
 baseline_metrics
 ```
+A naive baseline model predicting the training mean for all test observations produced an `RMSE` of approximately 9.32 and an `MAE` of 6.60. The `R^2` metric was undefined because constant predictions yield zero variance in the predicted values. This baseline establishes a reference point: any meaningful predictive model must substantially outperform this error level.
 
 ## Multiple Linear Regression
 A multiple linear regression model is trained using all available predictors. Cross-validation is applied during training to estimate performance stability. Predictions are generated on the test dataset to assess out-of-sample performance.
@@ -286,6 +293,7 @@ lm_metrics <- tibble(
 lm_fit
 lm_metrics
 ```
+The ordinary least squares regression model demonstrated strong predictive capacity, achieving a test `RMSE` of approximately 4.59 and an `R^2` of 0.761. This indicates that the linear model explains roughly 76% of the variance in unseen housing values.
 
 ### Diagnostics (Residuals)
 Diagnostic plots are produced to evaluate regression assumptions, including homoscedasticity and normality of residuals. Residual-versus-predicted plots assess systematic bias, while Q–Q plots evaluate deviation from normality.
@@ -306,6 +314,7 @@ p_res2 <- ggplot(tibble(res=res), aes(sample=res)) +
 
 p_res1 | p_res2
 ```
+Residual diagnostics show generally centered errors, though deviations in the tails suggest that linear assumptions may not fully capture complex patterns in the data. Nevertheless, the model offers solid interpretability and forms a robust benchmark for comparison.
 
 ## Regularized Regression (Elastic Net via glmnet)
 An Elastic Net regression model is trained to address potential multicollinearity and overfitting. A grid search over alpha (mixing parameter) and lambda (regularization strength) is conducted within the cross-validation framework to identify optimal hyperparameters.
@@ -336,6 +345,7 @@ glmnet_metrics <- tibble(
 glmnet_fit
 glmnet_metrics
 ```
+Elastic Net regression, tuned via cross-validation, selected an optimal combination of alpha = 0.25 and lambda ≈ 0.1125. On the test set, it achieved an `RMSE` nearly identical to linear regression (≈ 4.59) with a slightly improved `R^2` of 0.764.
 
 ### Coefficient (Interpretable Drivers)
 Coefficients from the optimal Elastic Net model are extracted and ranked according to magnitude. This analysis highlights the most influential predictors contributing to variations in median housing value, enhancing interpretability.
@@ -356,6 +366,7 @@ coef_df <- tibble(
 
 head(coef_df, 12)
 ```
+Coefficient analysis identified `lstat` and `rm` as the most influential predictors, consistent with EDA findings. While performance gains over OLS were marginal, Elastic Net provides improved coefficient stability in the presence of correlated predictors, reinforcing confidence in variable importance interpretations.
 
 ## Random Forest (Non-linear + Interactions)
 A Random Forest model is trained to capture non-linear relationships and higher-order interactions among predictors. Hyperparameter tuning is conducted via cross-validation to determine the optimal number of variables sampled at each split (`mtry`).
@@ -381,6 +392,7 @@ rf_metrics <- tibble(
 rf_fit
 rf_metrics
 ```
+The Random Forest model substantially outperformed all linear approaches. With an optimal mtry of 6, the model achieved a test `RMSE` of approximately 3.10 and an `R^2` of 0.896, explaining nearly 90% of the variance in housing prices. This improvement indicates the presence of meaningful non-linear relationships and interactions that linear models cannot fully capture.
 
 ### Feature Importane (Random Forest)
 Variable importance scores are extracted from the final Random Forest model and visualized to identify the most influential predictors. This provides insight into non-linear driver contributions within the ensemble framework.
@@ -403,6 +415,8 @@ ggplot(imp_df %>% slice_max(Importance, n=12),
        x=NULL, 
        y="Importance")
 ```
+Feature importance rankings again identified `lstat`, `rm`, `dis`, and `crim` as dominant predictors, confirming consistency across modeling paradigms.
+
 
 \newpage
 
@@ -419,6 +433,7 @@ results <- bind_rows(baseline_metrics,
 
 results
 ```
+When ranked by `RMSE`, Random Forest clearly outperforms Linear Regression and Elastic Net, while the baseline model performs significantly worse. The comparative analysis demonstrates that flexible ensemble methods yield superior predictive accuracy for this problem, particularly given the mixture of socioeconomic and environmental variables.
 
 
 ## Prediction Quality Plot (Best Model)
@@ -450,6 +465,7 @@ ggplot(plot_df, aes(actual, predicted)) +
     y = "Predicted medv"
   )
 ```
+The predicted-versus-actual plot for the best-performing model shows strong alignment along the 45-degree reference line, indicating good calibration. However, some underprediction is observed for high-value tracts, likely influenced by the dataset’s top-coded ceiling.
 
 ## Error Analysis (Where the model misses)
 Prediction errors are computed and ranked by absolute magnitude to identify observations where the model exhibits the largest deviations. A histogram of residuals is produced to assess distributional symmetry and potential bias.
@@ -468,6 +484,7 @@ ggplot(plot_df, aes(error)) +
        x="Actual - Predicted", 
        y="Count")
 ```
+Error analysis reveals that the largest deviations are concentrated among extreme observations, with absolute errors occasionally exceeding 10 (in $1,000s). The residual distribution remains approximately centered, suggesting no major systemic bias.
 
 
 \newpage
@@ -502,6 +519,7 @@ score_medv <- function(newdata, best_model_name = best_model) {
 example_new <- test %>% select(-medv) %>% slice(1:3)
 score_medv(example_new)
 ```
+A reusable score_medv() function was implemented to facilitate production deployment. The function validates predictor availability, applies necessary preprocessing (for regularized models), and returns numeric predictions. Demonstration outputs for sample records confirm successful integration. This modular design enables straightforward extension into dashboards, APIs, or batch-scoring workflows, completing the CRISP-DM lifecycle from exploration to deployment readiness.
 
 
 \newpage
@@ -512,6 +530,4 @@ score_medv(example_new)
 \newpage
 
 # References
-
-
 
