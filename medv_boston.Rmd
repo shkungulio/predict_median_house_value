@@ -519,7 +519,7 @@ A reusable score_medv() function was implemented to facilitate production deploy
 \newpage
 
 # **Conclusion**
-
+This project developed and rigorously evaluated predictive models to estimate median housing values in Boston using socioeconomic, environmental, and structural indicators. While linear and regularized regression models explained approximately 76% of the variance in home prices, the Random Forest model delivered superior performance, achieving an `RMSE` of 3.10 and explaining nearly 90% of the variance on unseen data. Results confirm that housing valuation is influenced by both socioeconomic composition (particularly `lstat`) and structural characteristics such as average number of rooms (`rm`), with meaningful non-linear effects present. The final solution includes a reusable scoring function, making the model deployment-ready for planning, investment analysis, and policy decision support.
 
 \newpage
 
