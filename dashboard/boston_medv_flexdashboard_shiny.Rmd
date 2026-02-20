@@ -1,0 +1,469 @@
+---
+title: "Predicting Median House Value in Boston — Interactive Dashboard"
+author: "Seif H. Kungulio"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    theme: cosmo
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+options(scipen = 999)
+```
+
+```{r packages}
+library(flexdashboard)
+library(shiny)
+library(tidyverse)
+library(MASS)
+library(caret)
+library(randomForest)
+library(glmnet)
+library(DT)
+library(plotly)
+```
+
+```{r data-and-train, include=FALSE}
+# ----------------------------
+# Data
+# ----------------------------
+data("Boston", package = "MASS")
+boston.df <- Boston
+
+# ----------------------------
+# Split
+# ----------------------------
+set.seed(123)
+idx <- createDataPartition(boston.df$medv, p = 0.8, list = FALSE)
+train <- boston.df[idx, ]
+test  <- boston.df[-idx, ]
+
+x_train_raw <- train %>% select(-medv)
+x_test_raw  <- test  %>% select(-medv)
+y_train <- train$medv
+y_test  <- test$medv
+
+# ----------------------------
+# Preprocess (for glmnet)
+# ----------------------------
+preproc <- preProcess(x_train_raw, method = c("center", "scale"))
+x_train <- predict(preproc, x_train_raw)
+x_test  <- predict(preproc, x_test_raw)
+
+# ----------------------------
+# CV control + metrics
+# ----------------------------
+ctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+
+rmse <- function(actual, pred) sqrt(mean((actual - pred)^2, na.rm = TRUE))
+mae  <- function(actual, pred) mean(abs(actual - pred), na.rm = TRUE)
+r2   <- function(actual, pred) {
+  # Guard: constant predictions -> cor() returns NA (sd = 0)
+  if (sd(pred, na.rm = TRUE) == 0) return(NA_real_)
+  cor(actual, pred, use = "complete.obs")^2
+}
+
+# ----------------------------
+# Train models
+# ----------------------------
+# Baseline: mean predictor
+baseline_pred <- rep(mean(y_train), length(y_test))
+
+# Linear Regression
+set.seed(123)
+lm_fit <- train(medv ~ ., data = train, method = "lm", trControl = ctrl)
+lm_pred <- predict(lm_fit, newdata = test)
+
+# Elastic Net (glmnet)
+grid_glmnet <- expand.grid(
+  alpha  = seq(0, 1, by = 0.25),
+  lambda = 10^seq(-3, 1, length.out = 40)
+)
+set.seed(123)
+glmnet_fit <- train(
+  x = as.matrix(x_train),
+  y = y_train,
+  method = "glmnet",
+  trControl = ctrl,
+  tuneGrid = grid_glmnet
+)
+glmnet_pred <- predict(glmnet_fit, newdata = as.matrix(x_test))
+
+# Random Forest (best in report)
+set.seed(42)
+rf_fit <- train(
+  medv ~ ., data = train,
+  method = "rf",
+  trControl = ctrl,
+  tuneLength = 8
+)
+rf_pred <- predict(rf_fit, newdata = test)
+
+# ----------------------------
+# Model comparison table (test set)
+# ----------------------------
+results <- tibble(
+  Model = c("Random Forest", "Elastic Net (glmnet)", "Linear Regression", "Baseline (Train Mean)"),
+  RMSE  = c(rmse(y_test, rf_pred), rmse(y_test, glmnet_pred), rmse(y_test, lm_pred), rmse(y_test, baseline_pred)),
+  MAE   = c(mae(y_test, rf_pred),  mae(y_test, glmnet_pred),  mae(y_test, lm_pred),  mae(y_test, baseline_pred)),
+  R2    = c(r2(y_test, rf_pred),   r2(y_test, glmnet_pred),   r2(y_test, lm_pred),   r2(y_test, baseline_pred))
+) %>% arrange(RMSE)
+
+best_model_name <- results$Model[1]
+
+# ----------------------------
+# Deployment scoring function (from analysis)
+# ----------------------------
+score_medv <- function(newdata, best_model_name = best_model_name) {
+  # Ensure columns match training structure
+  required_cols <- names(train %>% select(-medv))
+  if (!all(required_cols %in% names(newdata))) {
+    stop("newdata must include all predictor columns used in training.")
+  }
+  newdata <- newdata %>% select(all_of(required_cols))
+
+  pred <- switch(
+    best_model_name,
+    "Linear Regression"        = predict(lm_fit, newdata = newdata),
+    "Elastic Net (glmnet)"     = {
+      x_new <- predict(preproc, newdata)
+      predict(glmnet_fit, newdata = as.matrix(x_new))
+    },
+    "Random Forest"            = predict(rf_fit, newdata = newdata),
+    "Baseline (Train Mean)"    = rep(mean(y_train), nrow(newdata)),
+    # default (safety)
+    rep(mean(y_train), nrow(newdata))
+  )
+
+  as.numeric(pred)
+}
+
+# ----------------------------
+# Feature importance (RF)
+# ----------------------------
+rf_final <- rf_fit$finalModel
+imp <- randomForest::importance(rf_final)
+imp_df <- tibble(
+  Feature = rownames(imp),
+  Importance = imp[, 1]
+) %>% arrange(desc(Importance))
+
+# ----------------------------
+# Test-set plotting frames
+# ----------------------------
+preds_test <- tibble(
+  actual = y_test,
+  `Random Forest`        = as.numeric(rf_pred),
+  `Elastic Net (glmnet)` = as.numeric(glmnet_pred),
+  `Linear Regression`    = as.numeric(lm_pred),
+  `Baseline (Train Mean)`= as.numeric(baseline_pred)
+)
+
+default_ranges <- map_dfr(names(train %>% select(-medv)), ~{
+  tibble(
+    feature = .x,
+    min = min(train[[.x]], na.rm = TRUE),
+    max = max(train[[.x]], na.rm = TRUE),
+    median = median(train[[.x]], na.rm = TRUE)
+  )
+})
+```
+
+Inputs (Sidebar)
+=====================================
+
+```{r}
+# Sidebar controls
+selectInput(
+  "model_choice",
+  "Choose model for scoring",
+  choices = results$Model,
+  selected = best_model_name
+)
+
+hr()
+
+h4("Manual Inputs (single prediction)")
+helpText("Defaults are set to training medians. Adjust and click Predict.")
+
+# Make numeric inputs dynamically for all predictors
+uiOutput("manual_inputs")
+
+actionButton("btn_predict", "Predict medv", class = "btn-primary")
+br(); br()
+verbatimTextOutput("pred_value")
+
+hr()
+
+h4("Batch Scoring (upload CSV)")
+helpText("Upload a CSV with all 13 predictor columns. You'll get predictions back (downloadable).")
+
+fileInput("csv_file", "Upload CSV", accept = c(".csv"))
+actionButton("btn_score_csv", "Score CSV", class = "btn-success")
+br(); br()
+downloadButton("download_scored", "Download Scored CSV")
+```
+
+Row
+=====================================
+
+### Executive Overview
+
+```{r}
+valueBox(value = scales::comma(nrow(boston.df)), caption = "Census tracts (rows)")
+```
+
+```{r}
+valueBox(value = ncol(boston.df)-1, caption = "Predictors used")
+```
+
+```{r}
+best_row <- results %>% slice(1)
+valueBox(value = round(best_row$RMSE, 2), caption = paste0("Best model RMSE (", best_row$Model, ")"))
+```
+
+```{r}
+valueBox(value = round(best_row$R2, 3), caption = paste0("Best model R² (", best_row$Model, ")"))
+```
+
+Row
+=====================================
+
+### Model Comparison (Test Set)
+
+```{r}
+datatable(
+  results %>% mutate(across(c(RMSE, MAE), ~round(.x, 2)),
+                    R2 = ifelse(is.na(R2), NA, round(R2, 3))),
+  rownames = FALSE,
+  options = list(pageLength = 10)
+)
+```
+
+Row
+=====================================
+
+### What Drives Value? (Random Forest Importance)
+
+```{r}
+p_imp <- ggplot(imp_df %>% slice_max(Importance, n = 12),
+                aes(x = reorder(Feature, Importance), y = Importance)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Top Feature Importances (Random Forest)",
+       x = NULL, y = "Importance")
+
+ggplotly(p_imp)
+```
+
+Relationship Explorer
+=====================================
+
+Row
+-------------------------------------
+
+### Pick a Predictor
+
+```{r}
+selectInput(
+  "eda_x",
+  "X variable",
+  choices = setdiff(names(boston.df), "medv"),
+  selected = "lstat"
+)
+```
+
+### medv vs Selected Predictor
+
+```{r}
+renderPlotly({
+  xvar <- input$eda_x
+
+  p <- ggplot(boston.df, aes(x = .data[[xvar]], y = medv)) +
+    geom_point(alpha = 0.6) +
+    geom_smooth(method = "lm", se = FALSE) +
+    labs(
+      title = paste("medv vs", xvar),
+      x = xvar,
+      y = "medv ($1000s)"
+    )
+
+  ggplotly(p)
+})
+```
+
+Prediction Quality
+=====================================
+
+Row
+-------------------------------------
+
+### Actual vs Predicted (Test Set)
+
+```{r}
+renderPlotly({
+  m <- input$model_choice
+
+  df <- tibble(
+    actual = preds_test$actual,
+    predicted = preds_test[[m]]
+  )
+
+  p <- ggplot(df, aes(x = actual, y = predicted)) +
+    geom_point(alpha = 0.7) +
+    geom_abline(slope = 1, intercept = 0) +
+    labs(
+      title = paste("Actual vs Predicted —", m),
+      x = "Actual medv ($1000s)",
+      y = "Predicted medv ($1000s)"
+    )
+
+  ggplotly(p)
+})
+```
+
+### Error Distribution (Actual - Predicted)
+
+```{r}
+renderPlotly({
+  m <- input$model_choice
+  df <- tibble(error = preds_test$actual - preds_test[[m]])
+
+  p <- ggplot(df, aes(x = error)) +
+    geom_histogram(bins = 30) +
+    labs(
+      title = paste("Prediction Error Distribution —", m),
+      x = "Actual - Predicted ($1000s)",
+      y = "Count"
+    )
+
+  ggplotly(p)
+})
+```
+
+Deployment
+=====================================
+
+Row
+-------------------------------------
+
+### Single-Prediction Explanation
+
+```{r}
+renderUI({
+  tagList(
+    tags$p("This page operationalizes the project’s deployment step using the reusable ",
+           tags$code("score_medv()"), " function."),
+    tags$ul(
+      tags$li("Choose a model in the sidebar (defaults to the best model from test-set RMSE)."),
+      tags$li("Set manual inputs to score one tract, or upload a CSV to score many tracts."),
+      tags$li("All predictions are in ", tags$strong("$1000s"), " to match the dataset target scale.")
+    )
+  )
+})
+```
+
+### Scored Data Preview (CSV Upload)
+
+```{r}
+output$scored_preview <- renderDT({
+  req(input$btn_score_csv)
+  scored <- scored_reactive()
+  datatable(head(scored, 20), options = list(pageLength = 10))
+})
+DTOutput("scored_preview")
+```
+
+```{r server, include=FALSE}
+# ----------------------------
+# Server logic
+# ----------------------------
+
+# Dynamic manual input UI (one numericInput per predictor)
+output$manual_inputs <- renderUI({
+  req(default_ranges)
+
+  controls <- lapply(seq_len(nrow(default_ranges)), function(i) {
+    f <- default_ranges$feature[i]
+    mn <- default_ranges$min[i]
+    mx <- default_ranges$max[i]
+    md <- default_ranges$median[i]
+
+    numericInput(
+      inputId = paste0("x_", f),
+      label   = f,
+      value   = md,
+      min     = mn,
+      max     = mx,
+      step    = (mx - mn) / 100
+    )
+  })
+
+  # Layout: two columns for readability
+  fluidRow(
+    column(6, controls[seq(1, length(controls), by = 2)]),
+    column(6, controls[seq(2, length(controls), by = 2)])
+  )
+})
+
+# Manual single prediction
+observeEvent(input$btn_predict, {
+  req(input$model_choice)
+
+  required_cols <- names(train %>% select(-medv))
+
+  new_row <- map_dfc(required_cols, function(f) {
+    tibble(!!f := input[[paste0("x_", f)]])
+  })
+
+  pred <- score_medv(new_row, best_model_name = input$model_choice)
+
+  output$pred_value <- renderText({
+    paste0(
+      "Predicted medv (", input$model_choice, "): ",
+      round(pred, 2),
+      " ($1000s)"
+    )
+  })
+})
+
+# Batch scoring CSV
+scored_reactive <- reactiveVal(NULL)
+
+observeEvent(input$btn_score_csv, {
+  req(input$csv_file, input$model_choice)
+
+  df <- readr::read_csv(input$csv_file$datapath, show_col_types = FALSE)
+
+  required_cols <- names(train %>% select(-medv))
+  missing <- setdiff(required_cols, names(df))
+  if (length(missing) > 0) {
+    showNotification(
+      paste("Missing required columns:", paste(missing, collapse = ", ")),
+      type = "error",
+      duration = 8
+    )
+    return(NULL)
+  }
+
+  preds <- score_medv(df, best_model_name = input$model_choice)
+  scored <- df %>%
+    select(all_of(required_cols)) %>%
+    mutate(pred_medv = preds)
+
+  scored_reactive(scored)
+
+  showNotification("CSV scored successfully. Preview below and download when ready.", type = "message")
+})
+
+output$download_scored <- downloadHandler(
+  filename = function() paste0("boston_scored_", gsub("\\W+", "_", input$model_choice), ".csv"),
+  content = function(file) {
+    req(scored_reactive())
+    readr::write_csv(scored_reactive(), file)
+  }
+)
+```

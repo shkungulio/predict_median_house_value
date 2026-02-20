@@ -1,0 +1,221 @@
+---
+title: "Boston Housing Dashboard"
+output:
+  flexdashboard::flex_dashboard:
+    #logo: "logo.png"
+    navbar:
+    - href: "https://www.linkedin.com/in/seif-kungulio/"
+      target: "_blank"
+      icon: "fa-linkedin"
+    - href: https://github.com/shkungulio
+      target: "_blank"
+      icon: "fa-github"
+    orientation: rows
+    vertical_layout: scroll
+    theme: cosmo
+    #source_code: embed
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+options(dplyr.summarise.inform = FALSE)
+
+# Packages (install if missing)
+required_pkgs <- c(
+  "flexdashboard","shiny","MASS","dplyr","ggplot2","skimr","caret","glmnet",
+  "patchwork","randomForest","corrplot","DT","scales","tibble"
+)
+for (pkg in required_pkgs) {
+  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+}
+
+library(flexdashboard)
+library(shiny)
+library(MASS)
+library(dplyr)
+library(ggplot2)
+library(skimr)
+library(caret)
+library(glmnet)
+library(patchwork)
+library(randomForest)
+library(corrplot)
+library(DT)
+library(scales)
+library(tibble)
+
+set.seed(42)
+
+# --- Metrics helpers ---
+rmse <- function(actual, pred) sqrt(mean((actual - pred)^2, na.rm = TRUE))
+mae  <- function(actual, pred) mean(abs(actual - pred), na.rm = TRUE)
+r2   <- function(actual, pred) {
+  # guard against zero variance
+  if (sd(pred, na.rm = TRUE) == 0 || sd(actual, na.rm = TRUE) == 0) return(NA_real_)
+  cor(actual, pred, use = "complete.obs")^2
+}
+
+# --- Data load ---
+data("Boston", package = "MASS")
+boston.df <- Boston
+
+# Train/test split (stratified)
+set.seed(123)
+idx <- createDataPartition(boston.df$medv, p = 0.8, list = FALSE)
+train_df <- boston.df[idx, ]
+test_df  <- boston.df[-idx, ]
+
+x_train_raw <- train_df %>% select(-medv)
+x_test_raw  <- test_df %>% select(-medv)
+y_train <- train_df$medv
+y_test  <- test_df$medv
+
+# Preprocess for glmnet only (center/scale)
+preproc <- preProcess(x_train_raw, method = c("center", "scale"))
+x_train <- predict(preproc, x_train_raw)
+x_test  <- predict(preproc, x_test_raw)
+
+# CV settings
+ctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+
+# --- Fit models once (dashboard startup) ---
+# Baseline
+baseline_pred <- rep(mean(y_train), length(y_test))
+
+# Linear Regression
+lm_fit <- train(medv ~ ., data = train_df, method = "lm", trControl = ctrl)
+lm_pred <- predict(lm_fit, newdata = test_df)
+
+# Elastic Net
+grid_glmnet <- expand.grid(
+  alpha  = seq(0, 1, by = 0.25),
+  lambda = 10^seq(-3, 1, length.out = 40)
+)
+glmnet_fit <- train(
+  x = as.matrix(x_train),
+  y = y_train,
+  method = "glmnet",
+  trControl = ctrl,
+  tuneGrid = grid_glmnet
+)
+glmnet_pred <- predict(glmnet_fit, newdata = as.matrix(x_test))
+
+# Random Forest
+set.seed(42)
+rf_fit <- train(
+  medv ~ ., data = train_df,
+  method = "rf",
+  trControl = ctrl,
+  tuneLength = 8
+)
+rf_pred <- predict(rf_fit, newdata = test_df)
+
+# --- Consolidated test metrics ---
+results_tbl <- bind_rows(
+  tibble(Model = "Baseline (Train Mean)", RMSE = rmse(y_test, baseline_pred), MAE = mae(y_test, baseline_pred), R2 = r2(y_test, baseline_pred)),
+  tibble(Model = "Linear Regression",     RMSE = rmse(y_test, lm_pred),      MAE = mae(y_test, lm_pred),      R2 = r2(y_test, lm_pred)),
+  tibble(Model = "Elastic Net (glmnet)",  RMSE = rmse(y_test, glmnet_pred),  MAE = mae(y_test, glmnet_pred),  R2 = r2(y_test, glmnet_pred)),
+  tibble(Model = "Random Forest",         RMSE = rmse(y_test, rf_pred),      MAE = mae(y_test, rf_pred),      R2 = r2(y_test, rf_pred))
+) %>% arrange(RMSE)
+
+best_model_name <- results_tbl$Model[1]
+
+# Common plot df for best-model evaluation
+best_pred <- switch(
+  best_model_name,
+  "Baseline (Train Mean)" = baseline_pred,
+  "Linear Regression" = lm_pred,
+  "Elastic Net (glmnet)" = glmnet_pred,
+  "Random Forest" = rf_pred,
+  baseline_pred
+)
+
+plot_df_best <- tibble(
+  actual = y_test,
+  predicted = as.numeric(best_pred)
+) %>%
+  mutate(error = actual - predicted, abs_error = abs(error))
+
+# RF importance
+rf_imp_df <- {
+  imp <- randomForest::importance(rf_fit$finalModel)
+  tibble(Feature = rownames(imp), Importance = imp[, 1]) %>%
+    arrange(desc(Importance))
+}
+
+# Elastic net coefficients
+glmnet_coef_df <- {
+  bt <- glmnet_fit$bestTune
+  cm <- coef(glmnet_fit$finalModel, s = bt$lambda)
+  tibble(
+    term = rownames(as.matrix(cm)),
+    estimate = as.numeric(as.matrix(cm))
+  ) %>%
+    filter(term != "(Intercept)") %>%
+    arrange(desc(abs(estimate)))
+}
+
+# For scoring inputs
+predictor_names <- names(train_df %>% select(-medv))
+med_defaults <- sapply(train_df[predictor_names], median)
+
+# Robust scoring function
+score_medv <- function(newdata, model_name = best_model_name) {
+  stopifnot(all(predictor_names %in% names(newdata)))
+  newdata <- newdata %>% select(all_of(predictor_names))
+
+  pred <- switch(
+    model_name,
+    "Linear Regression" = predict(lm_fit, newdata = newdata),
+    "Elastic Net (glmnet)" = {
+      x_new <- predict(preproc, newdata)
+      predict(glmnet_fit, newdata = as.matrix(x_new))
+    },
+    "Random Forest" = predict(rf_fit, newdata = newdata),
+    rep(mean(y_train), nrow(newdata))
+  )
+
+  as.numeric(pred)
+}
+```
+
+
+Sidebar {.sidebar}
+---
+
+
+
+
+Row {data-height=120}
+---
+### KPIs
+
+
+
+
+Row {data-height=240}
+---
+
+### Column
+
+
+### Column
+
+
+### Column
+
+
+Row {data-height=350}
+---
+### Column
+
+### Column
+
+Row {.tabset data-height=300}
+---
+### Table_1
+
+### Table_2
+
+### Table_3
