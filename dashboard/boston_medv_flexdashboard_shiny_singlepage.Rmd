@@ -158,8 +158,7 @@ required_cols <- names(train %>% select(-medv))
 ```
 
 Inputs (Sidebar)
-=====================================
-
+---
 ```{r}
 selectInput(
   "model_choice",
@@ -180,17 +179,12 @@ selectInput(
 
 hr()
 
-h4("Batch Scoring (CSV Upload)")
-helpText("Upload a CSV with all 13 predictor columns; the app returns predictions (pred_medv) and a download link.")
-
-fileInput("csv_file", "Upload CSV", accept = c(".csv"))
-actionButton("btn_score_csv", "Score CSV", class = "btn-success")
-br(); br()
-downloadButton("download_scored", "Download Scored CSV")
 ```
 
 Boston MEDV Dashboard
-=====================================
+
+======================================
+
 
 Row
 -------------------------------------
