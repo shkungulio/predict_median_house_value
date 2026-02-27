@@ -1,10 +1,9 @@
 ---
-title: "Predicting Median House Value in Boston — Interactive Dashboard"
-author: "Seif H. Kungulio"
+title: "Predicting Median House Value in Boston"
 output:
   flexdashboard::flex_dashboard:
     orientation: rows
-    vertical_layout: fill
+    vertical_layout: scroll
     theme: cosmo
 runtime: shiny
 ---
@@ -157,7 +156,7 @@ preds_test <- tibble(
 required_cols <- names(train %>% select(-medv))
 ```
 
-Inputs (Sidebar)
+Sidebar {.sidebar}
 ---
 ```{r}
 selectInput(
@@ -181,35 +180,43 @@ hr()
 
 ```
 
-Boston MEDV Dashboard
-
-======================================
-
 
 Row
--------------------------------------
+---
 
 ### Executive Overview
 
 ```{r}
-valueBox(value = scales::comma(nrow(boston.df)), caption = "Census tracts (rows)")
+renderValueBox({
+valueBox(value = scales::comma(nrow(boston.df)), 
+         caption = "Census tracts (rows)")
+})
 ```
 
 ```{r}
-valueBox(value = ncol(boston.df)-1, caption = "Predictors used")
+renderValueBox({
+valueBox(value = ncol(boston.df)-1, 
+         caption = "Predictors used")
+})
 ```
 
 ```{r}
+renderValueBox({
 best_row <- results %>% slice(1)
-valueBox(value = round(best_row$RMSE, 2), caption = paste0("Best model RMSE (", best_row$Model, ")"))
+valueBox(value = round(best_row$RMSE, 2), 
+         caption = paste0("Best model RMSE (", best_row$Model, ")"))
+})
 ```
 
 ```{r}
-valueBox(value = round(best_row$R2, 3), caption = paste0("Best model R² (", best_row$Model, ")"))
+renderValueBox({
+valueBox(value = round(best_row$R2, 3), 
+         caption = paste0("Best model R² (", best_row$Model, ")"))
+})
 ```
 
 Row
--------------------------------------
+---
 
 ### Model Comparison (Test Set)
 
