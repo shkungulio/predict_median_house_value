@@ -1,8 +1,7 @@
 ---
-title: "Boston Housing Dashboard"
+title: "Median House Value in Boston"
 output:
   flexdashboard::flex_dashboard:
-    #logo: "logo.png"
     navbar:
     - href: "https://www.linkedin.com/in/seif-kungulio/"
       target: "_blank"
@@ -11,211 +10,235 @@ output:
       target: "_blank"
       icon: "fa-github"
     orientation: rows
-    vertical_layout: scroll
+    vertical_layout: fill
     theme: cosmo
-    #source_code: embed
 runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
-options(dplyr.summarise.inform = FALSE)
 
-# Packages (install if missing)
-required_pkgs <- c(
-  "flexdashboard","shiny","MASS","dplyr","ggplot2","skimr","caret","glmnet",
-  "patchwork","randomForest","corrplot","DT","scales","tibble"
+# Packages
+pkgs <- c(
+  "flexdashboard", "shiny", "MASS", "dplyr", "ggplot2",
+  "caret", "randomForest", "scales", "tidyr", "tibble"
 )
-for (pkg in required_pkgs) {
-  if (!requireNamespace(pkg, quietly = TRUE)) install.packages(pkg)
+for (p in pkgs) {
+  if (!requireNamespace(p, quietly = TRUE)) install.packages(p)
+  library(p, character.only = TRUE)
 }
-
-library(flexdashboard)
-library(shiny)
-library(MASS)
-library(dplyr)
-library(ggplot2)
-library(skimr)
-library(caret)
-library(glmnet)
-library(patchwork)
-library(randomForest)
-library(corrplot)
-library(DT)
-library(scales)
-library(tibble)
 
 set.seed(42)
 
-# --- Metrics helpers ---
-rmse <- function(actual, pred) sqrt(mean((actual - pred)^2, na.rm = TRUE))
-mae  <- function(actual, pred) mean(abs(actual - pred), na.rm = TRUE)
-r2   <- function(actual, pred) {
-  # guard against zero variance
-  if (sd(pred, na.rm = TRUE) == 0 || sd(actual, na.rm = TRUE) == 0) return(NA_real_)
-  cor(actual, pred, use = "complete.obs")^2
-}
-
-# --- Data load ---
+# Data
 data("Boston", package = "MASS")
 boston.df <- Boston
 
-# Train/test split (stratified)
-set.seed(123)
-idx <- createDataPartition(boston.df$medv, p = 0.8, list = FALSE)
-train_df <- boston.df[idx, ]
-test_df  <- boston.df[-idx, ]
+# Train the best model from the report: Random Forest
+ctrl <- trainControl(method = "cv", number = 10)
+rf_grid <- expand.grid(mtry = c(2, 4, 6, 8))
 
-x_train_raw <- train_df %>% select(-medv)
-x_test_raw  <- test_df %>% select(-medv)
-y_train <- train_df$medv
-y_test  <- test_df$medv
-
-# Preprocess for glmnet only (center/scale)
-preproc <- preProcess(x_train_raw, method = c("center", "scale"))
-x_train <- predict(preproc, x_train_raw)
-x_test  <- predict(preproc, x_test_raw)
-
-# CV settings
-ctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
-
-# --- Fit models once (dashboard startup) ---
-# Baseline
-baseline_pred <- rep(mean(y_train), length(y_test))
-
-# Linear Regression
-lm_fit <- train(medv ~ ., data = train_df, method = "lm", trControl = ctrl)
-lm_pred <- predict(lm_fit, newdata = test_df)
-
-# Elastic Net
-grid_glmnet <- expand.grid(
-  alpha  = seq(0, 1, by = 0.25),
-  lambda = 10^seq(-3, 1, length.out = 40)
-)
-glmnet_fit <- train(
-  x = as.matrix(x_train),
-  y = y_train,
-  method = "glmnet",
-  trControl = ctrl,
-  tuneGrid = grid_glmnet
-)
-glmnet_pred <- predict(glmnet_fit, newdata = as.matrix(x_test))
-
-# Random Forest
-set.seed(42)
 rf_fit <- train(
-  medv ~ ., data = train_df,
+  medv ~ ., data = boston.df,
   method = "rf",
   trControl = ctrl,
-  tuneLength = 8
-)
-rf_pred <- predict(rf_fit, newdata = test_df)
-
-# --- Consolidated test metrics ---
-results_tbl <- bind_rows(
-  tibble(Model = "Baseline (Train Mean)", RMSE = rmse(y_test, baseline_pred), MAE = mae(y_test, baseline_pred), R2 = r2(y_test, baseline_pred)),
-  tibble(Model = "Linear Regression",     RMSE = rmse(y_test, lm_pred),      MAE = mae(y_test, lm_pred),      R2 = r2(y_test, lm_pred)),
-  tibble(Model = "Elastic Net (glmnet)",  RMSE = rmse(y_test, glmnet_pred),  MAE = mae(y_test, glmnet_pred),  R2 = r2(y_test, glmnet_pred)),
-  tibble(Model = "Random Forest",         RMSE = rmse(y_test, rf_pred),      MAE = mae(y_test, rf_pred),      R2 = r2(y_test, rf_pred))
-) %>% arrange(RMSE)
-
-best_model_name <- results_tbl$Model[1]
-
-# Common plot df for best-model evaluation
-best_pred <- switch(
-  best_model_name,
-  "Baseline (Train Mean)" = baseline_pred,
-  "Linear Regression" = lm_pred,
-  "Elastic Net (glmnet)" = glmnet_pred,
-  "Random Forest" = rf_pred,
-  baseline_pred
+  tuneGrid = rf_grid,
+  importance = TRUE,
+  ntree = 500
 )
 
-plot_df_best <- tibble(
-  actual = y_test,
-  predicted = as.numeric(best_pred)
-) %>%
-  mutate(error = actual - predicted, abs_error = abs(error))
+# Pre-compute variable importance for display
+vi <- varImp(rf_fit, scale = TRUE)$importance |>
+  tibble::rownames_to_column("feature") |>
+  dplyr::arrange(dplyr::desc(Overall))
 
-# RF importance
-rf_imp_df <- {
-  imp <- randomForest::importance(rf_fit$finalModel)
-  tibble(Feature = rownames(imp), Importance = imp[, 1]) %>%
-    arrange(desc(Importance))
-}
+# Ranges for UI controls
+rng <- boston.df |>
+  dplyr::select(-medv) |>
+  dplyr::summarise(dplyr::across(dplyr::everything(), list(min = min, max = max)))
 
-# Elastic net coefficients
-glmnet_coef_df <- {
-  bt <- glmnet_fit$bestTune
-  cm <- coef(glmnet_fit$finalModel, s = bt$lambda)
-  tibble(
-    term = rownames(as.matrix(cm)),
-    estimate = as.numeric(as.matrix(cm))
-  ) %>%
-    filter(term != "(Intercept)") %>%
-    arrange(desc(abs(estimate)))
-}
+get_min <- function(var) rng[[paste0(var, "_min")]]
+get_max <- function(var) rng[[paste0(var, "_max")]]
 
-# For scoring inputs
-predictor_names <- names(train_df %>% select(-medv))
-med_defaults <- sapply(train_df[predictor_names], median)
+fmt_money <- function(x) dollar(x * 1000)
 
-# Robust scoring function
-score_medv <- function(newdata, model_name = best_model_name) {
-  stopifnot(all(predictor_names %in% names(newdata)))
-  newdata <- newdata %>% select(all_of(predictor_names))
+```
 
-  pred <- switch(
-    model_name,
-    "Linear Regression" = predict(lm_fit, newdata = newdata),
-    "Elastic Net (glmnet)" = {
-      x_new <- predict(preproc, newdata)
-      predict(glmnet_fit, newdata = as.matrix(x_new))
-    },
-    "Random Forest" = predict(rf_fit, newdata = newdata),
-    rep(mean(y_train), nrow(newdata))
-  )
+Prediction
+===============================
 
-  as.numeric(pred)
-}
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+Use the controls below to describe a Boston-area tract. Click **Predict** to estimate **MEDV** (median home value).
+
+```{r}
+hr()
+sliderInput("rm", "Avg rooms per dwelling (rm)",
+            min = floor(get_min("rm")), max = floor(get_max("rm")),
+            value = median(boston.df$rm), step = 1)
+hr()
+
+sliderInput("lstat", "% lower status population (lstat)",
+            min = get_min("lstat"), max = get_max("lstat"),
+            value = median(boston.df$lstat), step = 0.1)
+hr()
+
+sliderInput("dis", "Distance to employment centers (dis)",
+            min = get_min("dis"), max = get_max("dis"),
+            value = median(boston.df$dis), step = 0.01)
+hr()
+
+# sliderInput("crim", "Crime rate (crim)",
+#             min = get_min("crim"), max = get_max("crim"),
+#             value = median(boston.df$crim), step = 0.01)
+# hr()
+
+sliderInput("nox", "Nitric oxides (nox)",
+            min = get_min("nox"), max = get_max("nox"),
+            value = median(boston.df$nox), step = 0.001)
+hr()
+
+actionButton("go", "Predict", class = "btn-primary")
 ```
 
 
-Sidebar {.sidebar}
----
+Row
+-----------------------------------------------------------------------
+
+### Predicted MEDV
+
+```{r}
+newdata_reactive <- eventReactive(input$go, {
+
+  # Start with median row
+  base_row <- as.data.frame(
+    lapply(boston.df[, -which(names(boston.df) == "medv")], median)
+  )
+
+  # Replace only top 5 inputs
+  base_row$rm     <- input$rm
+  base_row$lstat  <- input$lstat
+  base_row$dis    <- input$dis
+  #base_row$crim   <- input$crim
+  base_row$nox    <- input$nox
+
+  base_row
+})
+
+pred_medv <- eventReactive(input$go, {
+  predict(rf_fit, newdata = newdata_reactive())
+})
+
+renderValueBox({
+  req(pred_medv())
+  valueBox(
+    value = fmt_money(as.numeric(pred_medv())),
+    caption = "Estimated median home value",
+    icon = "fa-home",
+    color = "primary"
+  )
+})
+```
+
+### **Quick Context**
+
+```{r}
+renderUI({
+  req(pred_medv())
+
+  p <- as.numeric(pred_medv())
+  q <- quantile(boston.df$medv, probs = c(0.1, 0.5, 0.9))
+
+  label <- dplyr::case_when(
+    p < q[[1]] ~ "Lower-valued tract relative to the dataset",
+    p < q[[3]] ~ "Mid-range tract relative to the dataset",
+    TRUE ~ "Higher-valued tract relative to the dataset"
+  )
+
+  HTML(paste0(
+    "<b>Model:</b> Random Forest (caret) — tuned via 10-fold CV<br/>",
+    "<b>Best mtry:</b> ", rf_fit$bestTune$mtry, "<br/>",
+    "<b>Interpretation:</b> ", label
+  ))
+})
+```
+
+Row
+-----------------------------------------------------------------------
+
+### **Where the inputs sit vs. the dataset**
+
+```{r}
+renderPlot({
+  req(newdata_reactive())
+
+  nd <- newdata_reactive()
+  # Show the 4 most influential features (global) and compare input vs distribution
+  top4 <- vi$feature[1:4]
+
+  long_df <- boston.df |>
+    dplyr::select(dplyr::all_of(top4)) |>
+    tidyr::pivot_longer(dplyr::everything(), names_to = "feature", values_to = "value")
+
+  marker_df <- data.frame(
+    feature = top4,
+    value = as.numeric(nd[1, top4])
+  )
+
+  ggplot(long_df, aes(x = value)) +
+    geom_histogram(bins = 30) +
+    facet_wrap(~feature, scales = "free", ncol = 2) +
+    geom_vline(data = marker_df, aes(xintercept = value), linewidth = 1) +
+    labs(
+      title = "Input value (vertical line) compared to the dataset",
+      x = NULL, y = "Count"
+    )
+})
+```
 
 
+Model insights
+=======================================================================
 
+Row
+-----------------------------------------------------------------------
 
-Row {data-height=120}
----
-### KPIs
+### Cross-validated performance (tuning)
 
+```{r}
+renderTable({
+  rf_fit$results |>
+    dplyr::arrange(RMSE) |>
+    dplyr::mutate(across(where(is.numeric), ~round(.x, 4)))
+}, striped = TRUE, bordered = TRUE, hover = TRUE, spacing = "s")
+```
 
+### Top feature importances
 
+```{r}
+renderPlot({
+  topn <- 10
+  plot_df <- vi |>
+    dplyr::slice_head(n = topn) |>
+    dplyr::mutate(feature = reorder(feature, Overall))
 
-Row {data-height=240}
----
+  ggplot(plot_df, aes(x = Overall, y = feature)) +
+    geom_col() +
+    labs(
+      title = paste0("Top ", topn, " drivers of MEDV (Random Forest importance)"),
+      x = "Importance (scaled)",
+      y = NULL
+    )
+})
+```
 
-### Column
+Row
+-----------------------------------------------------------------------
 
+### Notes for deployment
 
-### Column
+- **Target is capped at 50** in this dataset; high-value tracts may be under-predicted near the ceiling.
+- Inputs are constrained to the min/max observed in the training data to reduce extrapolation risk.
+- For production use, retrain periodically and log predictions + inputs for monitoring.
 
-
-### Column
-
-
-Row {data-height=350}
----
-### Column
-
-### Column
-
-Row {.tabset data-height=300}
----
-### Table_1
-
-### Table_2
-
-### Table_3
