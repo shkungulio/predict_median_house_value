@@ -180,6 +180,7 @@ renderPlot({
     theme_test()
 })
 ```
+> 
 
 ### **% Lower Status Population**
 ```{r}
@@ -200,6 +201,7 @@ renderPlot({
     theme_test()
 })
 ```
+> 
 
 Row
 ---
@@ -223,6 +225,7 @@ renderPlot({
     theme_test()
 })
 ```
+> 
 
 ### **Nitric Oxides Concentration**
 ```{r}
@@ -243,6 +246,7 @@ renderPlot({
     theme_test()
 })
 ```
+> 
 
 
 Row
@@ -257,6 +261,7 @@ renderTable({
     dplyr::mutate(across(where(is.numeric), ~round(.x, 4)))
 }, striped = TRUE, bordered = TRUE, hover = TRUE, spacing = "s")
 ```
+> 
 
 ### **Top Feature Importance**
 
@@ -276,3 +281,5 @@ renderPlot({
     )
 })
 ```
+> 
+
