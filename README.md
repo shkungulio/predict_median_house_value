@@ -139,24 +139,11 @@ Notably, both linear and non-linear models consistently identified socioeconomic
 
 
 ## Dashboard Preview
-The best model (Random Forest) was visualized using:
+The tuned Random Forest model (10-fold CV, RMSE ≈ 3.10, R^2 ≈ 0.89) was deployed as an interactive Shiny dashboard that enables real-time housing value simulation. Users adjust key drivers — rooms (rm), socioeconomic composition (lstat), accessibility (dis), and environmental quality (nox) — to instantly generate predicted median home values (MEDV).
 
-* Actual vs Predicted Plot
-  * Strong alignment with 45-degree reference line
-  * Minor underprediction at high-value tracts (ceiling effect)
-* Feature Importance Bar Chart
-  * Clear dominance of lstat and rm
-  * Confirms EDA insights
-* Error Distribution Histogram
-  * Symmetric residual distribution
-  * Largest errors occur in extreme-value neighborhoods
+Each input is contextualized against the original data distribution, strengthening interpretability and responsible model use. Feature importance analysis confirms that structural and socioeconomic factors dominate valuation dynamics.
 
-The model is deployment-ready through a reusable score_medv() function that:
-
-* Validates new input structure
-* Applies necessary preprocessing
-* Returns numeric predictions
-* Supports future dashboard or API integration
+This deployment demonstrates end-to-end capability — translating validated machine learning models into an interactive, stakeholder-ready decision-support application.
 
 
 ## Reflection & Lessons Learned
