@@ -10,7 +10,7 @@ output:
       target: "_blank"
       icon: "fa-github"
     orientation: rows
-    vertical_layout: fill
+    vertical_layout: scroll
     theme: cosmo
 runtime: shiny
 ---
@@ -64,8 +64,6 @@ fmt_money <- function(x) dollar(x * 1000)
 
 ```
 
-Prediction
-===============================
 
 Inputs {.sidebar}
 -----------------------------------------------------------------------
@@ -247,13 +245,10 @@ renderPlot({
 ```
 
 
-Model insights
-=======================================================================
-
 Row
 -----------------------------------------------------------------------
 
-### Cross-validated performance (tuning)
+### **Cross-validated Performance (Tuning)**
 
 ```{r}
 renderTable({
@@ -263,7 +258,7 @@ renderTable({
 }, striped = TRUE, bordered = TRUE, hover = TRUE, spacing = "s")
 ```
 
-### Top feature importances
+### **Top Feature Importance**
 
 ```{r}
 renderPlot({
@@ -281,13 +276,3 @@ renderPlot({
     )
 })
 ```
-
-Row
------------------------------------------------------------------------
-
-### Notes for deployment
-
-- **Target is capped at 50** in this dataset; high-value tracts may be under-predicted near the ceiling.
-- Inputs are constrained to the min/max observed in the training data to reduce extrapolation risk.
-- For production use, retrain periodically and log predictions + inputs for monitoring.
-
