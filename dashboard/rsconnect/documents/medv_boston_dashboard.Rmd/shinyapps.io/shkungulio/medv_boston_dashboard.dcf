@@ -1,0 +1,12 @@
+name: medv_boston_dashboard
+title: medv_boston_dashboard
+username: shkungulio
+account: shkungulio
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 16803562
+bundleId: 11655738
+url: https://shkungulio.shinyapps.io/medv_boston_dashboard/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

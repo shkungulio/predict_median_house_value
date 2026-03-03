@@ -18,15 +18,17 @@ runtime: shiny
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 
-# Packages
-pkgs <- c(
-  "flexdashboard", "shiny", "MASS", "dplyr", "ggplot2",
-  "caret", "randomForest", "scales", "tidyr", "tibble"
-)
-for (p in pkgs) {
-  if (!requireNamespace(p, quietly = TRUE)) install.packages(p)
-  library(p, character.only = TRUE)
-}
+#Install the following libraries if required
+library(shiny)
+library(flexdashboard)
+library(MASS)
+library(dplyr)
+library(ggplot2)
+library(caret)
+library(randomForest)
+library(scales)
+library(tidyr)
+library(tibble)
 
 set.seed(42)
 
@@ -133,6 +135,7 @@ renderValueBox({
   )
 })
 ```
+> The prediction demonstrates how multidimensional neighborhood factors translate into actionable price forecasts.
 
 ### **Quick Context**
 
@@ -180,7 +183,7 @@ renderPlot({
     theme_test()
 })
 ```
-> 
+> Room count is the strongest valuation driver, with higher average rooms significantly increasing predicted home value.
 
 ### **% Lower Status Population**
 ```{r}
@@ -201,7 +204,7 @@ renderPlot({
     theme_test()
 })
 ```
-> 
+> Socioeconomic composition is the second most influential factor, with higher lstat values strongly reducing home prices.
 
 Row
 ---
@@ -225,7 +228,7 @@ renderPlot({
     theme_test()
 })
 ```
-> 
+> Accessibility moderately impacts pricing, with balanced proximity supporting stable valuations. The model captures the nonlinear relationship between commuting distance and housing demand.
 
 ### **Nitric Oxides Concentration**
 ```{r}
@@ -246,10 +249,10 @@ renderPlot({
     theme_test()
 })
 ```
-> 
+> Environmental quality ranks among the top valuation drivers, with higher pollution levels negatively affecting home prices.
 
 
-Row
+Model Insights {.tabset .tabset-fade}
 -----------------------------------------------------------------------
 
 ### **Cross-validated Performance (Tuning)**
@@ -261,7 +264,7 @@ renderTable({
     dplyr::mutate(across(where(is.numeric), ~round(.x, 4)))
 }, striped = TRUE, bordered = TRUE, hover = TRUE, spacing = "s")
 ```
-> 
+> The tuned Random Forest achieves R² ≈ 0.89 and RMSE ≈ 3.10, explaining nearly 90% of price variance. Performance stability across folds confirms strong generalization and low overfitting risk.
 
 ### **Top Feature Importance**
 
@@ -281,5 +284,8 @@ renderPlot({
     )
 })
 ```
-> 
+> Structural capacity, socioeconomic composition, and environmental exposure dominate valuation impact. The importance ranking enhances interpretability while aligning with urban economic theory.
 
+Row
+-----------------------------------------------------------------------
+The Random Forest model accurately predicts Boston median home values with ~89% variance explained. Structural housing characteristics, particularly average room count, are the strongest value drivers, followed by socioeconomic status and environmental quality indicators. The selected tract represents a mid-tier neighborhood with balanced accessibility and moderate environmental exposure. Overall, property valuation in Boston reflects a multidimensional interplay of structural, demographic, and environmental factors.
