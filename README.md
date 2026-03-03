@@ -139,6 +139,8 @@ Notably, both linear and non-linear models consistently identified socioeconomic
 
 
 ## Dashboard Preview
+[![Project Cover](resources/dashboard.png)](https://shkungulio.shinyapps.io/medv_boston_dashboard/)
+
 The tuned Random Forest model (10-fold CV, RMSE ≈ 3.10, R^2 ≈ 0.89) was deployed as an interactive Shiny dashboard that enables real-time housing value simulation. Users adjust key drivers — rooms (rm), socioeconomic composition (lstat), accessibility (dis), and environmental quality (nox) — to instantly generate predicted median home values (MEDV).
 
 Each input is contextualized against the original data distribution, strengthening interpretability and responsible model use. Feature importance analysis confirms that structural and socioeconomic factors dominate valuation dynamics.
