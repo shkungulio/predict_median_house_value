@@ -276,12 +276,13 @@ renderPlot({
     dplyr::mutate(feature = reorder(feature, Overall))
 
   ggplot(plot_df, aes(x = Overall, y = feature)) +
-    geom_col() +
+    geom_col(fill = "steelblue") +
     labs(
       title = paste0("Top ", topn, " drivers of MEDV (Random Forest importance)"),
       x = "Importance (scaled)",
       y = NULL
-    )
+    ) +
+    theme_test()
 })
 ```
 > Structural capacity, socioeconomic composition, and environmental exposure dominate valuation impact. The importance ranking enhances interpretability while aligning with urban economic theory.
