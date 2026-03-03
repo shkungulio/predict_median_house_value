@@ -89,17 +89,13 @@ sliderInput("dis", "Distance to employment centers (dis)",
             value = median(boston.df$dis), step = 0.01)
 hr()
 
-# sliderInput("crim", "Crime rate (crim)",
-#             min = get_min("crim"), max = get_max("crim"),
-#             value = median(boston.df$crim), step = 0.01)
-# hr()
-
 sliderInput("nox", "Nitric oxides (nox)",
             min = get_min("nox"), max = get_max("nox"),
-            value = median(boston.df$nox), step = 0.001)
+            value = median(boston.df$nox), step = 0.01)
 hr()
 
 actionButton("go", "Predict", class = "btn-primary")
+hr()
 ```
 
 
@@ -116,11 +112,10 @@ newdata_reactive <- eventReactive(input$go, {
     lapply(boston.df[, -which(names(boston.df) == "medv")], median)
   )
 
-  # Replace only top 5 inputs
+  # Top 4 inputs from variable importance
   base_row$rm     <- input$rm
   base_row$lstat  <- input$lstat
   base_row$dis    <- input$dis
-  #base_row$crim   <- input$crim
   base_row$nox    <- input$nox
 
   base_row
@@ -167,33 +162,87 @@ renderUI({
 Row
 -----------------------------------------------------------------------
 
-### **Where the inputs sit vs. the dataset**
+### **Average Room per Dwelling**
 
 ```{r}
 renderPlot({
   req(newdata_reactive())
 
-  nd <- newdata_reactive()
-  # Show the 4 most influential features (global) and compare input vs distribution
-  top4 <- vi$feature[1:4]
-
-  long_df <- boston.df |>
-    dplyr::select(dplyr::all_of(top4)) |>
-    tidyr::pivot_longer(dplyr::everything(), names_to = "feature", values_to = "value")
-
-  marker_df <- data.frame(
-    feature = top4,
-    value = as.numeric(nd[1, top4])
-  )
-
-  ggplot(long_df, aes(x = value)) +
-    geom_histogram(bins = 30) +
-    facet_wrap(~feature, scales = "free", ncol = 2) +
-    geom_vline(data = marker_df, aes(xintercept = value), linewidth = 1) +
+  ggplot(boston.df, aes(x = rm)) +
+    geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+    geom_vline(xintercept = input$rm,
+               color = "red",
+               linewidth = 1.2) +
     labs(
-      title = "Input value (vertical line) compared to the dataset",
-      x = NULL, y = "Count"
-    )
+      title = "Distribution of Average Rooms (rm)",
+      subtitle = "Red line = Selected Input Value",
+      x = "Average Rooms per Dwelling",
+      y = "Count"
+    ) +
+    theme_test()
+})
+```
+
+### **% Lower Status Population**
+```{r}
+renderPlot({
+  req(newdata_reactive())
+
+  ggplot(boston.df, aes(x = lstat)) +
+    geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+    geom_vline(xintercept = input$lstat,
+               color = "red",
+               linewidth = 1.2) +
+    labs(
+      title = "Distribution of % Lower Status Population (lstat)",
+      subtitle = "Red line = Selected Input Value",
+      x = "% Lower Status Population",
+      y = "Count"
+    ) +
+    theme_test()
+})
+```
+
+Row
+---
+
+### **Distance to Employment Centers**
+```{r}
+renderPlot({
+  req(newdata_reactive())
+
+  ggplot(boston.df, aes(x = dis)) +
+    geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+    geom_vline(xintercept = input$dis,
+               color = "red",
+               linewidth = 1.2) +
+    labs(
+      title = "Distribution of Distance to Employment Centers (dis)",
+      subtitle = "Red line = Selected Input Value",
+      x = "Weighted Distance",
+      y = "Count"
+    ) +
+    theme_test()
+})
+```
+
+### **Nitric Oxides Concentration**
+```{r}
+renderPlot({
+  req(newdata_reactive())
+
+  ggplot(boston.df, aes(x = nox)) +
+    geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+    geom_vline(xintercept = input$nox,
+               color = "red",
+               linewidth = 1.2) +
+    labs(
+      title = "Distribution of Nitric Oxides Concentration (nox)",
+      subtitle = "Red line = Selected Input Value",
+      x = "Nitric Oxides Concentration",
+      y = "Count"
+    ) +
+    theme_test()
 })
 ```
 
