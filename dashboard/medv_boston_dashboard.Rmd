@@ -63,15 +63,12 @@ get_min <- function(var) rng[[paste0(var, "_min")]]
 get_max <- function(var) rng[[paste0(var, "_max")]]
 
 fmt_money <- function(x) dollar(x * 1000)
-
 ```
 
 
 Inputs {.sidebar}
 -----------------------------------------------------------------------
-
 Use the controls below to describe a Boston-area tract. Click **Predict** to estimate **MEDV** (median home value).
-
 ```{r}
 hr()
 sliderInput("rm", "Avg rooms per dwelling (rm)",
@@ -98,19 +95,15 @@ actionButton("go", "Predict", class = "btn-primary")
 hr()
 ```
 
-
 &nbsp;
 &nbsp;
 
-
-  © 2026 Crisp-DM Insights  
+© 2026 Crisp-DM Insights  
 
 
 Row
 -----------------------------------------------------------------------
-
 ### Predicted MEDV
-
 ```{r}
 newdata_reactive <- eventReactive(input$go, {
 
@@ -145,7 +138,6 @@ renderValueBox({
 > The prediction demonstrates how multidimensional neighborhood factors translate into actionable price forecasts.
 
 ### **Quick Context**
-
 ```{r}
 renderUI({
   req(pred_medv())
@@ -167,11 +159,10 @@ renderUI({
 })
 ```
 
+
 Row
 -----------------------------------------------------------------------
-
 ### **Average Room per Dwelling**
-
 ```{r}
 renderPlot({
   req(newdata_reactive())
@@ -215,7 +206,6 @@ renderPlot({
 
 Row
 -----------------------------------------------------------------------
-
 ### **Distance to Employment Centers**
 ```{r}
 renderPlot({
@@ -262,7 +252,6 @@ renderPlot({
 Model Insights {.tabset .tabset-fade}
 -----------------------------------------------------------------------
 ### **Top Feature Importance**
-
 ```{r}
 renderPlot({
   topn <- 10
@@ -283,7 +272,6 @@ renderPlot({
 > Structural capacity, socioeconomic composition, and environmental exposure dominate valuation impact. The importance ranking enhances interpretability while aligning with urban economic theory.
 
 ### **Cross-validated Performance (Tuning)**
-
 ```{r}
 renderTable({
   rf_fit$results |>
