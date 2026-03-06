@@ -84,19 +84,26 @@ sliderInput("lstat", "% lower status population (lstat)",
             value = median(boston.df$lstat), step = 0.1)
 hr()
 
-sliderInput("dis", "Distance to employment centers (dis)",
-            min = get_min("dis"), max = get_max("dis"),
-            value = median(boston.df$dis), step = 0.01)
-hr()
-
 sliderInput("nox", "Nitric oxides (nox)",
             min = get_min("nox"), max = get_max("nox"),
-            value = median(boston.df$nox), step = 0.01)
+            value = median(boston.df$nox), step = 0.1)
+hr()
+
+sliderInput("dis", "Distance to employment centers (dis)",
+            min = get_min("dis"), max = get_max("dis"),
+            value = median(boston.df$dis), step = 0.1)
 hr()
 
 actionButton("go", "Predict", class = "btn-primary")
 hr()
 ```
+
+
+&nbsp;
+&nbsp;
+
+
+  © 2026 Crisp-DM Insights  
 
 
 Row
@@ -207,7 +214,7 @@ renderPlot({
 > Socioeconomic composition is the second most influential factor, with higher lstat values strongly reducing home prices.
 
 Row
----
+-----------------------------------------------------------------------
 
 ### **Distance to Employment Centers**
 ```{r}
@@ -254,18 +261,6 @@ renderPlot({
 
 Model Insights {.tabset .tabset-fade}
 -----------------------------------------------------------------------
-
-### **Cross-validated Performance (Tuning)**
-
-```{r}
-renderTable({
-  rf_fit$results |>
-    dplyr::arrange(RMSE) |>
-    dplyr::mutate(across(where(is.numeric), ~round(.x, 4)))
-}, striped = TRUE, bordered = TRUE, hover = TRUE, spacing = "s")
-```
-> The tuned Random Forest achieves R² ≈ 0.89 and RMSE ≈ 3.10, explaining nearly 90% of price variance. Performance stability across folds confirms strong generalization and low overfitting risk.
-
 ### **Top Feature Importance**
 
 ```{r}
@@ -287,6 +282,19 @@ renderPlot({
 ```
 > Structural capacity, socioeconomic composition, and environmental exposure dominate valuation impact. The importance ranking enhances interpretability while aligning with urban economic theory.
 
-Row
+### **Cross-validated Performance (Tuning)**
+
+```{r}
+renderTable({
+  rf_fit$results |>
+    dplyr::arrange(RMSE) |>
+    dplyr::mutate(across(where(is.numeric), ~round(.x, 4)))
+}, striped = TRUE, bordered = TRUE, hover = TRUE, spacing = "s")
+```
+> The tuned Random Forest achieves R² ≈ 0.89 and RMSE ≈ 3.10, explaining nearly 90% of price variance. Performance stability across folds confirms strong generalization and low overfitting risk.
+
+
+Row {data-height=120}
 -----------------------------------------------------------------------
-The Random Forest model accurately predicts Boston median home values with ~89% variance explained. Structural housing characteristics, particularly average room count, are the strongest value drivers, followed by socioeconomic status and environmental quality indicators. The selected tract represents a mid-tier neighborhood with balanced accessibility and moderate environmental exposure. Overall, property valuation in Boston reflects a multidimensional interplay of structural, demographic, and environmental factors.
+> The Random Forest model accurately predicts Boston median home values with ~89% variance explained. Structural housing characteristics, particularly average room count, are the strongest value drivers, followed by socioeconomic status and environmental quality indicators. The selected tract represents a mid-tier neighborhood with balanced accessibility and moderate environmental exposure. Overall, property valuation in Boston reflects a multidimensional interplay of structural, demographic, and environmental factors.
+
